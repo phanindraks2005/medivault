@@ -1,413 +1,561 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { Suspense, use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronRight, CreditCard, FlaskConical, Loader2, Pencil, Phone, Plus, Sparkles, Syringe, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase, authHeaders } from '@/lib/supabase'
-import Toast from '@/components/Toast'
+import { useFamily } from '@/lib/family-context'
+import { ageFrom, allergyList, relationLabel } from '@/lib/family'
+import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import MemberAvatar from '@/components/app/MemberAvatar'
+import DateLeaf from '@/components/app/DateLeaf'
+import MemberForm, { toRow, type MemberValues } from '@/components/app/MemberForm'
+import UploadRecordDialog from '@/components/app/UploadRecordDialog'
+import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
+import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
+import { cn } from '@/lib/utils'
 
-function initials(name: string) {
-  return name?.trim()?.[0]?.toUpperCase() || '?'
+type FullMember = {
+  id: string
+  name: string
+  relation: string | null
+  dob: string | null
+  gender: string | null
+  blood_group: string | null
+  allergies: string | null
+  known_conditions: string | null
+  height_cm: number | null
+  weight_kg: number | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
 }
 
-export default function FamilyMemberPage({ params }: { params: Promise<{ id: string }> }) {
+type Summary = { overview: string; timeline?: { date: string; summary: string }[]; key_takeaway: string; disclaimer?: string }
+
+export default function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-
-  const [member, setMember] = useState<any>(null)
-  const [records, setRecords] = useState<any[]>([])
-  const [error, setError] = useState('')
-  const [showToast, setShowToast] = useState(false)
-  const [doctorName, setDoctorName] = useState('')
-  const [hospitalName, setHospitalName] = useState('')
-const [editMode, setEditMode] = useState(false)
-const [editName, setEditName] = useState('')
-const [editRelation, setEditRelation] = useState('')
-const [editDob, setEditDob] = useState('')
-const [editGender, setEditGender] = useState('')
-const [editBloodGroup, setEditBloodGroup] = useState('')
-const [editAllergies, setEditAllergies] = useState('')
-const [editKnownConditions, setEditKnownConditions] = useState('')
-const [editHeightCm, setEditHeightCm] = useState('')
-const [editWeightKg, setEditWeightKg] = useState('')
-const [editEmergencyContactName, setEditEmergencyContactName] = useState('')
-const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [recordType, setRecordType] = useState('prescription')
-  const [uploading, setUploading] = useState(false)
-  const [showUploadForm, setShowUploadForm] = useState(false)
-  const [summaryResult, setSummaryResult] = useState<any>(null)
-const [summaryLoading, setSummaryLoading] = useState(false)
-
-  const startEdit = () => {
-  setEditName(member.name || '')
-  setEditRelation(member.relation || '')
-  setEditDob(member.dob || '')
-  setEditGender(member.gender || '')
-  setEditBloodGroup(member.blood_group || '')
-  setEditAllergies(member.allergies || '')
-  setEditKnownConditions(member.known_conditions || '')
-  setEditHeightCm(member.height_cm?.toString() || '')
-  setEditWeightKg(member.weight_kg?.toString() || '')
-  setEditEmergencyContactName(member.emergency_contact_name || '')
-  setEditEmergencyContactPhone(member.emergency_contact_phone || '')
-  setEditMode(true)
+  return (
+    <Suspense>
+      <Member id={id} />
+    </Suspense>
+  )
 }
 
-const handleSaveEdit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  const { error } = await supabase
-    .from('family_members')
-    .update({
-      name: editName,
-      relation: editRelation,
-      dob: editDob || null,
-      gender: editGender,
-      blood_group: editBloodGroup,
-      allergies: editAllergies || null,
-      known_conditions: editKnownConditions || null,
-      height_cm: editHeightCm ? parseFloat(editHeightCm) : null,
-      weight_kg: editWeightKg ? parseFloat(editWeightKg) : null,
-      emergency_contact_name: editEmergencyContactName || null,
-      emergency_contact_phone: editEmergencyContactPhone || null,
-    })
-    .eq('id', id)
-
-  if (error) {
-    setError(error.message)
-  } else {
-    setEditMode(false)
-    fetchMember()
-  }
+function recordTitle(r: MedicalRecord) {
+  return r.record_type === 'lab_report' ? 'Lab report' : r.record_type === 'other' ? 'Record' : 'Prescription'
 }
 
-const handleGenerateSummary = async () => {
-  setSummaryLoading(true)
-  setSummaryResult(null)
-  setError('')
+// Newest first by the date the doctor wrote it; undated uploads fall back to the upload date.
+const byDoctorDate = (a: MedicalRecord, b: MedicalRecord) => (b.record_date || b.created_at).localeCompare(a.record_date || a.created_at)
 
-  const recordsForSummary = records
-    .filter((r) => r.extracted_data && !r.extracted_data.error)
-    .map((r) => ({
-      record_type: r.record_type,
-      date: new Date(r.created_at).toLocaleDateString(),
-      doctor: r.doctor_name,
-      hospital: r.hospital_name,
-      medicines: r.extracted_data?.medicines,
-      notes: r.extracted_data?.notes,
-    }))
+function Member({ id }: { id: string }) {
+  const router = useRouter()
+  const params = useSearchParams()
+  const family = useFamily()
+  const color = family.colors[id] || '#5b6b7f'
 
-  if (recordsForSummary.length === 0) {
-    setError('No processed records yet to summarize')
-    setSummaryLoading(false)
-    return
-  }
+  const [member, setMember] = useState<FullMember | null>(null)
+  const [records, setRecords] = useState<MedicalRecord[]>([])
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading')
+  const [editing, setEditing] = useState(false)
+  const [uploading, setUploading] = useState(params.get('upload') === '1')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [summary, setSummary] = useState<Summary | null>(null)
+  const [summaryState, setSummaryState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const [summaryError, setSummaryError] = useState('')
 
-  try {
-    const res = await fetch('/api/visit-summary', {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({ memberName: member.name, records: recordsForSummary }),
-    })
-    const data = await res.json()
-    if (data.error) setError(data.error)
-    else setSummaryResult(data)
-  } catch {
-    setError('Summary failed, try again')
-  }
-  setSummaryLoading(false)
-}
-
-const handleDeleteMember = async () => {
-  const confirmed = window.confirm(`Delete ${member.name} and all their records? This can't be undone.`)
-  if (!confirmed) return
-
-  const { error } = await supabase.from('family_members').delete().eq('id', id)
-  if (error) {
-    setError(error.message)
-  } else {
-    window.location.href = '/profile'
-  }
-}
-
-  const fetchMember = async () => {
-    const { data, error } = await supabase.from('family_members').select('*').eq('id', id).single()
-    if (error) setError(error.message)
-    else setMember(data)
-  }
-
-  const fetchRecords = async () => {
+  const loadRecords = useCallback(async () => {
     const { data, error } = await supabase
       .from('medical_records')
-      .select('*')
+      .select('id, family_member_id, record_type, record_date, created_at, doctor_name, hospital_name, extracted_data, file_url')
       .eq('family_member_id', id)
-      .order('created_at', { ascending: false })
-    if (!error) setRecords(data || [])
-  }
-
-  useEffect(() => {
-    fetchMember()
-    fetchRecords()
+    if (!error) setRecords(((data || []) as MedicalRecord[]).sort(byDoctorDate))
+    return !error
   }, [id])
 
-  const handleUploadRecord = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!file) {
-      setError('Choose a file first')
-      return
-    }
-    setUploading(true)
-    setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setError('Not logged in')
-      setUploading(false)
-      return
-    }
-    const filePath = `${user.id}/${Date.now()}_${file.name}`
-    const { error: uploadError } = await supabase.storage.from('medical-records').upload(filePath, file)
-    if (uploadError) {
-      setError(uploadError.message)
-      setUploading(false)
-      return
-    }
-    const { data: insertedRecord, error: insertError } = await supabase
-      .from('medical_records')
-      .insert({
-        user_id: user.id,
-        family_member_id: id,
-        record_type: recordType,
-        file_url: filePath,
-        doctor_name: doctorName || null,
-        hospital_name: hospitalName || null,
-      })
-      .select()
-      .single()
-    if (insertError) {
-      setError(insertError.message)
-    } else {
-      setFile(null)
-      setDoctorName('')
-      setHospitalName('')
-      setShowUploadForm(false)
-      fetchRecords()
-      setShowToast(true)
-      setTimeout(() => setShowToast(false), 2500)
-      const { data: { session } } = await supabase.auth.getSession()
-      fetch('/api/extract-record', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ recordId: insertedRecord.id }),
-      }).then(() => fetchRecords())
-    }
-    setUploading(false)
+  const load = useCallback(async () => {
+    setStatus('loading')
+    const [m, v, ok] = await Promise.all([
+      supabase.from('family_members').select('*').eq('id', id).maybeSingle(),
+      supabase.from('vaccinations').select('id, family_member_id, vaccine_name, date_given, next_due_date').eq('family_member_id', id),
+      loadRecords(),
+    ])
+    if (m.error || v.error || !ok) return setStatus('error')
+    if (!m.data) return setStatus('missing')
+    setMember(m.data)
+    setVaccinations(v.data || [])
+    setStatus('ready')
+  }, [id, loadRecords])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
+
+  // While anything is still being read, check again every few seconds.
+  const pending = records.some((r) => !r.extracted_data)
+  useEffect(() => {
+    if (!pending) return
+    const t = setInterval(loadRecords, 4000)
+    return () => clearInterval(t)
+  }, [pending, loadRecords])
+
+  const setUploadOpen = (open: boolean) => {
+    setUploading(open)
+    if (!open && params.get('upload')) router.replace(`/profile/family/${id}`)
   }
 
-  if (!member) {
+  const isSelf = member?.relation?.toLowerCase() === 'self'
+  const first = member?.name.split(' ')[0] || ''
+  const allergies = allergyList(member?.allergies)
+  const conditions = allergyList(member?.known_conditions)
+
+  // Current medicines: each name once, from the most recent record that lists it.
+  const medicines: { name: string; dosage?: string | null; frequency?: string | null; date: string; recordId: string }[] = []
+  const seen = new Set<string>()
+  for (const r of records) {
+    for (const m of r.extracted_data?.medicines || []) {
+      const key = m?.name?.toLowerCase()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      medicines.push({ ...m, date: r.record_date || r.created_at, recordId: r.id })
+    }
+  }
+
+  const upcoming = vaccinations
+    .filter((v) => v.next_due_date)
+    .map((v) => ({ ...v, days: daysFromToday(v.next_due_date!) }))
+    .sort((a, b) => a.days - b.days)
+
+  const generateSummary = async () => {
+    const usable = records
+      .filter((r) => r.extracted_data && !r.extracted_data.error)
+      .map((r) => ({
+        record_type: r.record_type,
+        date: formatDay(r.record_date || r.created_at),
+        doctor: r.doctor_name,
+        hospital: r.hospital_name,
+        medicines: r.extracted_data?.medicines,
+        notes: r.extracted_data?.notes,
+      }))
+    if (!usable.length) {
+      setSummaryState('error')
+      return setSummaryError('There are no read records to summarise yet.')
+    }
+    setSummaryState('busy')
+    setSummaryError('')
+    try {
+      const res = await fetch('/api/visit-summary', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ memberName: member?.name, records: usable }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error)
+      setSummary(data)
+      setSummaryState('idle')
+    } catch (e) {
+      setSummaryState('error')
+      setSummaryError(e instanceof Error && e.message ? e.message : 'The summary service is busy. Try again in a minute.')
+    }
+  }
+
+  const remove = async () => {
+    setDeleting(true)
+    // Remove their files too, so nothing is left behind in storage.
+    const files = (records as (MedicalRecord & { file_url?: string | null })[]).map((r) => r.file_url).filter(Boolean) as string[]
+    if (files.length) await supabase.storage.from('medical-records').remove(files)
+    const { error } = await supabase.from('family_members').delete().eq('id', id)
+    setDeleting(false)
+    if (error) return toast.error(`Couldn't delete ${first}. Try again.`)
+    await family.reload()
+    toast.success(`${member?.name} deleted`)
+    router.push('/profile')
+  }
+
+  if (status === 'missing') {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-5 py-6">
-          <p className="text-sm text-text-secondary">Loading…</p>
-        </div>
-      </div>
+      <Page>
+        <PageHeader title="Not found" back={{ href: '/profile', label: 'Family' }} sub="This family member doesn't exist or was deleted." />
+      </Page>
     )
   }
 
+  const meta = member
+    ? [
+        relationLabel(member.relation),
+        ageFrom(member.dob) !== null ? `${ageFrom(member.dob)} yrs` : null,
+        member.gender,
+        member.height_cm ? `${member.height_cm} cm` : null,
+        member.weight_kg ? `${member.weight_kg} kg` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
+
+  const initial: MemberValues | undefined = member
+    ? {
+        name: member.name || '',
+        relation: member.relation || '',
+        dob: member.dob || '',
+        gender: member.gender || '',
+        blood_group: member.blood_group || '',
+        allergies: member.allergies || '',
+        known_conditions: member.known_conditions || '',
+        height_cm: member.height_cm?.toString() || '',
+        weight_kg: member.weight_kg?.toString() || '',
+        emergency_contact_name: member.emergency_contact_name || '',
+        emergency_contact_phone: member.emergency_contact_phone || '',
+      }
+    : undefined
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-5 py-6">
-        <Link href="/profile" className="text-sm text-text-secondary hover:text-foreground transition mb-8 inline-block">
-          <i className="ti ti-arrow-left" style={{ marginRight: 4 }}></i>Back to family
-        </Link>
-        <Link href={`/profile/family/${id}/vaccinations`} className="ml-3 text-sm text-sage hover:opacity-80 transition mb-8 inline-block">
-  <i className="ti ti-vaccine" style={{ marginRight: 4 }}></i>Vaccinations
-</Link>
+    <Page>
+      <PageHeader
+        back={{ href: '/profile', label: 'Family' }}
+        lead={member ? <MemberAvatar name={member.name} color={color} size={56} /> : <Skeleton className="size-14 rounded-full" />}
+        title={member ? member.name : <Skeleton className="h-8 w-56" />}
+        sub={member ? meta || relationLabel(member.relation) : 'Loading…'}
+        actions={
+          member && (
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <Pencil aria-hidden="true" /> Edit
+              </Button>
+              <Button onClick={() => setUploadOpen(true)}>
+                <Plus aria-hidden="true" /> Add a record
+              </Button>
+            </>
+          )
+        }
+      />
 
-<Link href={`/profile/family/${id}/interactions`} className="ml-3 text-sm text-taupe hover:opacity-80 transition mb-8 inline-block">
-  <i className="ti ti-flask" style={{ marginRight: 4 }}></i>Check interactions
-</Link>
+      {status === 'error' && <ErrorLine onRetry={load}>Couldn&apos;t load {first || 'this person'}&apos;s records. Check your connection.</ErrorLine>}
 
-        {error && (
-          <div className="mb-6 px-4 py-3 rounded-2xl bg-red-50 text-red-800 text-sm">{error}</div>
-        )}
-
-        {/* Member details */}
-<section className="mb-8">
-  {!editMode ? (
-    <div className="bg-card rounded-2xl border border-border p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-sage flex items-center justify-center text-white text-xl font-medium">
-            {initials(member.name)}
-          </div>
-          <div>
-            <p className="text-lg font-medium text-foreground">{member.name}</p>
-            <p className="text-sm text-text-secondary capitalize">{member.relation}</p>
-            <p className="text-xs text-text-secondary mt-1 capitalize">
-              {member.gender || '—'} · {member.blood_group || '—'} {member.dob && `· DOB ${member.dob}`}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2 pt-3 border-t border-border">
-  <button onClick={startEdit} className="text-sm px-3 py-1.5 rounded-full border border-border hover:bg-background transition">
-    <i className="ti ti-edit" style={{ marginRight: 4 }}></i>Edit
-  </button>
-  {member.relation?.toLowerCase() !== 'self' && (
-    <button onClick={handleDeleteMember} className="text-sm px-3 py-1.5 rounded-full border border-red-300 text-red-800 hover:bg-red-50 transition">
-      <i className="ti ti-trash" style={{ marginRight: 4 }}></i>Delete
-    </button>
-  )}
-</div>
-    </div>
-  ) : (
-    <form onSubmit={handleSaveEdit} className="bg-card rounded-2xl border border-border p-4 flex flex-col gap-3">
-      <input placeholder="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Relation" value={editRelation} onChange={(e) => setEditRelation(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input type="date" value={editDob} onChange={(e) => setEditDob(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Gender" value={editGender} onChange={(e) => setEditGender(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Blood group" value={editBloodGroup} onChange={(e) => setEditBloodGroup(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Allergies (comma separated)" value={editAllergies} onChange={(e) => setEditAllergies(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Known conditions (comma separated)" value={editKnownConditions} onChange={(e) => setEditKnownConditions(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <div className="grid grid-cols-2 gap-3">
-        <input placeholder="Height (cm)" type="number" value={editHeightCm} onChange={(e) => setEditHeightCm(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-        <input placeholder="Weight (kg)" type="number" value={editWeightKg} onChange={(e) => setEditWeightKg(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      </div>
-      <input placeholder="Emergency contact name" value={editEmergencyContactName} onChange={(e) => setEditEmergencyContactName(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <input placeholder="Emergency contact phone" value={editEmergencyContactPhone} onChange={(e) => setEditEmergencyContactPhone(e.target.value)}
-        className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-      <div className="flex gap-2">
-        <button type="submit" className="px-4 py-2 rounded-xl bg-sage text-white text-sm font-medium hover:opacity-90 transition">
-          Save changes
-        </button>
-        <button type="button" onClick={() => setEditMode(false)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-background transition">
-          Cancel
-        </button>
-      </div>
-    </form>
-  )}
-</section>
-
-{/* AI Visit Summary */}
-<section className="mb-8">
-  <div className="flex items-center justify-between mb-3">
-    <div className="flex items-center gap-2">
-      <i className="ti ti-sparkles" style={{ color: 'var(--color-sage)', fontSize: 18 }}></i>
-      <h2 className="text-lg font-medium text-foreground">Health summary</h2>
-    </div>
-    <button
-      onClick={handleGenerateSummary}
-      disabled={summaryLoading}
-      className="text-sm px-3 py-1.5 rounded-full bg-sage text-[#0F1115] hover:opacity-90 transition disabled:opacity-50"
-    >
-      {summaryLoading ? 'Generating…' : summaryResult ? 'Regenerate' : 'Generate summary'}
-    </button>
-  </div>
-
-  {summaryResult && (
-    <div className="flex flex-col gap-3">
-      <div className="bg-card rounded-2xl border border-border p-4">
-        <p className="text-sm text-foreground">{summaryResult.overview}</p>
-      </div>
-
-      {summaryResult.timeline?.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {summaryResult.timeline.map((t: any, i: number) => (
-            <div key={i} className="flex gap-3">
-              <div className="w-2 h-2 rounded-full bg-sage mt-1.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-text-secondary">{t.date}</p>
-                <p className="text-sm text-foreground">{t.summary}</p>
+      {/* The facts someone would ask for first */}
+      <section aria-label="Health basics" className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Fact label="Blood group">
+          {member ? (
+            <p className={cn('font-display text-[40px] font-bold leading-none num', !member.blood_group && 'text-line-strong')}>{member.blood_group || '—'}</p>
+          ) : (
+            <Skeleton className="h-9 w-14" />
+          )}
+        </Fact>
+        <Fact label="Allergies">
+          {member ? (
+            allergies.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {allergies.map((a) => (
+                  <Badge key={a} variant="overdue">
+                    {a}
+                  </Badge>
+                ))}
               </div>
-            </div>
-          ))}
+            ) : (
+              <p className="text-[15px] text-ink-2">None known</p>
+            )
+          ) : (
+            <Skeleton className="h-6 w-24" />
+          )}
+        </Fact>
+        <Fact label="Known conditions">
+          {member ? (
+            conditions.length ? <p className="text-[15px]">{conditions.join(', ')}</p> : <p className="text-[15px] text-ink-2">None noted</p>
+          ) : (
+            <Skeleton className="h-5 w-28" />
+          )}
+        </Fact>
+        <Fact label="Emergency contact">
+          {member ? (
+            member.emergency_contact_name || member.emergency_contact_phone ? (
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-medium">{member.emergency_contact_name || 'Contact'}</p>
+                {member.emergency_contact_phone && (
+                  <a
+                    href={`tel:${member.emergency_contact_phone.replace(/\s+/g, '')}`}
+                    className="inline-flex items-center gap-1.5 text-[15px] text-band underline-offset-4 hover:underline num"
+                  >
+                    <Phone className="size-3.5" aria-hidden="true" /> {member.emergency_contact_phone}
+                  </a>
+                )}
+              </div>
+            ) : (
+              <button onClick={() => setEditing(true)} className="text-left text-[15px] text-band underline-offset-4 hover:underline">
+                Add one
+              </button>
+            )
+          ) : (
+            <Skeleton className="h-5 w-28" />
+          )}
+        </Fact>
+      </section>
+
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+        <Panel labelledBy="meds" className="lg:col-span-6">
+          <PanelHead id="meds" title="Current medicines" count={status === 'ready' ? medicines.length : undefined} hint="From the latest record that lists each one" />
+          {status === 'loading' && <RowsSkeleton count={3} height={56} />}
+          {status === 'ready' && medicines.length === 0 && <EmptyLine>Medicines appear here once a prescription has been read.</EmptyLine>}
+          {status === 'ready' && medicines.length > 0 && (
+            <ul className="mt-3 overflow-hidden rounded-lg border border-line bg-surface">
+              {medicines.slice(0, 6).map((m, i) => (
+                <li key={m.name} className={cn('flex items-center gap-3 px-3.5 py-3', i > 0 && 'border-t border-line')}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-medium">
+                      {m.name} {m.dosage && <span className="font-normal text-ink-2 num">{m.dosage}</span>}
+                    </p>
+                    {m.frequency && <p className="truncate text-[13px] text-ink-3">{m.frequency}</p>}
+                  </div>
+                  <span className="shrink-0 text-[13px] text-ink-3 num">{formatDay(m.date)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel labelledBy="vax" className="flex flex-col lg:col-span-6">
+          <PanelHead
+            id="vax"
+            title="Vaccinations"
+            count={status === 'ready' ? vaccinations.length : undefined}
+            hint="Next due first"
+            action={
+              <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/profile/family/${id}/vaccinations`} />}>
+                Manage <ChevronRight aria-hidden="true" />
+              </Button>
+            }
+          />
+          {status === 'loading' && <RowsSkeleton count={3} />}
+          {status === 'ready' && upcoming.length === 0 && <EmptyLine>No vaccinations with a due date yet.</EmptyLine>}
+          {status === 'ready' && upcoming.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {upcoming.slice(0, 3).map((v) => {
+                const tone = v.days < 0 ? 'red' : v.days <= 30 ? 'due' : 'plain'
+                return (
+                  <li key={v.id} className="flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5">
+                    <DateLeaf {...dayLeaf(v.next_due_date!)} tone={tone} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium">{v.vaccine_name}</p>
+                      <p className={cn('text-[13px] font-medium sm:hidden num', tone === 'red' ? 'text-red-ink' : tone === 'due' ? 'text-due-ink' : 'text-ink-3')}>
+                        {dueLabel(v.days)}
+                      </p>
+                    </div>
+                    <Badge variant={tone === 'red' ? 'overdue' : tone === 'due' ? 'due' : 'neutral'} className="hidden sm:inline-flex">
+                      {dueLabel(v.days)}
+                    </Badge>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel labelledBy="records" className="lg:col-span-9">
+          <PanelHead id="records" title="Records" count={status === 'ready' ? records.length : undefined} hint="By the date the doctor wrote them" />
+          {status === 'loading' && <RowsSkeleton count={4} />}
+          {status === 'ready' && records.length === 0 && (
+            <EmptyLine
+              action={
+                <Button size="sm" onClick={() => setUploadOpen(true)}>
+                  <Plus aria-hidden="true" /> Add a record
+                </Button>
+              }
+            >
+              No records for {first} yet. Upload a photo or PDF of a prescription or lab report.
+            </EmptyLine>
+          )}
+          {status === 'ready' && records.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {records.map((r) => {
+                const meds = r.extracted_data?.medicines?.map((m) => m.name).filter(Boolean) || []
+                const st = !r.extracted_data
+                  ? { label: 'Reading…', variant: 'due' as const }
+                  : r.extracted_data.error
+                    ? { label: 'Needs a retry', variant: 'overdue' as const }
+                    : { label: 'Read', variant: 'ok' as const }
+                return (
+                  <li key={r.id}>
+                    <Link href={`/profile/family/${id}/records/${r.id}`} className={cn(rowCard, 'flex min-h-[72px] items-center gap-3 px-3 py-2.5')}>
+                      <DateLeaf {...dayLeaf(r.record_date || r.created_at)} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-medium">
+                          {recordTitle(r)}
+                          {(r.doctor_name || r.hospital_name) && (
+                            <span className="font-normal text-ink-2"> · {[r.doctor_name, r.hospital_name].filter(Boolean).join(', ')}</span>
+                          )}
+                        </p>
+                        <p className="truncate text-[13px] text-ink-3">
+                          {meds.length ? meds.join(', ') : r.extracted_data?.error ? "The file couldn't be read" : r.extracted_data ? 'No medicines listed' : 'Reading the file…'}
+                          {!r.record_date && ` · uploaded ${formatDay(r.created_at)}`}
+                        </p>
+                      </div>
+                      <Badge variant={st.variant}>
+                        {st.label === 'Reading…' && <Loader2 className="animate-spin" aria-hidden="true" />}
+                        {st.label}
+                      </Badge>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel labelledBy="tools" className="lg:col-span-3">
+          <PanelHead id="tools" title={`For ${first || 'them'}`} />
+          <ul className="mt-3 space-y-2">
+            {[
+              { href: `/profile/family/${id}/emergency`, label: 'Emergency card', hint: 'Show or print', icon: CreditCard },
+              { href: `/profile/family/${id}/vaccinations`, label: 'Vaccinations', hint: 'Doses and due dates', icon: Syringe },
+              { href: `/profile/family/${id}/interactions`, label: 'Interaction check', hint: 'Before a new medicine', icon: FlaskConical },
+            ].map((t) => (
+              <li key={t.href}>
+                <Link href={t.href} className={cn(rowCard, 'group flex items-center gap-3 px-3 py-3')}>
+                  <t.icon className="size-[18px] shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-medium">{t.label}</span>
+                    <span className="block text-[13px] text-ink-3">{t.hint}</span>
+                  </span>
+                  <ChevronRight className="size-4 text-ink-3 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel labelledBy="summary" className="lg:col-span-12">
+          <PanelHead
+            id="summary"
+            title="Visit summary"
+            hint="A short history to read out at the next appointment"
+            action={
+              <Button variant="outline" size="sm" onClick={generateSummary} disabled={summaryState === 'busy' || status !== 'ready'}>
+                {summaryState === 'busy' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                {summaryState === 'busy' ? 'Writing…' : summary ? 'Write again' : 'Write a summary'}
+              </Button>
+            }
+          />
+          <div aria-live="polite">
+            {summaryState === 'busy' && <p className="mt-3 text-[14px] text-ink-3">This can take up to half a minute when the service is busy.</p>}
+            {summaryState === 'error' && (
+              <p role="alert" className="mt-3 rounded-lg border border-line bg-surface px-4 py-3 text-[15px] text-ink-2">
+                {summaryError}
+              </p>
+            )}
+            {summary && summaryState !== 'busy' && (
+              <div className="mt-3 grid gap-4 rounded-lg border border-line bg-surface p-5 lg:grid-cols-[1.2fr_1fr]">
+                <div>
+                  <p className="text-[16px] leading-relaxed">{summary.overview}</p>
+                  <p className="mt-4 rounded-lg bg-due-soft px-4 py-3 text-[15px] text-due-ink">
+                    <span className="font-semibold">Worth mentioning: </span>
+                    {summary.key_takeaway}
+                  </p>
+                  {summary.disclaimer && <p className="mt-3 text-[13px] text-ink-3">{summary.disclaimer}</p>}
+                </div>
+                {!!summary.timeline?.length && (
+                  <ol className="space-y-3">
+                    {summary.timeline.map((t, i) => (
+                      <li key={i} className="grid grid-cols-[96px_1fr] gap-3 text-[14px]">
+                        <span className="text-ink-3 num">{t.date}</span>
+                        <span>{t.summary}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            )}
+          </div>
+        </Panel>
+      </div>
+
+      {member && !isSelf && (
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line px-5 py-4">
+          <p className="text-[14px] text-ink-2">Deleting {first} removes their records, vaccinations and uploaded files.</p>
+          <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+            <Trash2 aria-hidden="true" /> Delete {first}
+          </Button>
         </div>
       )}
 
-      <div className="bg-taupe-light rounded-2xl p-4">
-        <p className="text-xs text-text-secondary mb-1">Key takeaway</p>
-        <p className="text-sm text-foreground">{summaryResult.key_takeaway}</p>
-      </div>
+      {member && (
+        <>
+          <Dialog open={editing} onOpenChange={setEditing}>
+            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[560px]">
+              <DialogHeader>
+                <DialogTitle>Edit {first}</DialogTitle>
+                <DialogDescription>Changes show on the emergency card straight away.</DialogDescription>
+              </DialogHeader>
+              <MemberForm
+                initial={initial}
+                isSelf={isSelf}
+                submitLabel="Save changes"
+                busyLabel="Saving…"
+                onCancel={() => setEditing(false)}
+                onSubmit={async (values) => {
+                  const row = toRow(values)
+                  const { error } = await supabase
+                    .from('family_members')
+                    .update(isSelf ? { ...row, relation: 'self' } : row)
+                    .eq('id', id)
+                  if (error) return "Couldn't save. Check your connection and try again."
+                  setEditing(false)
+                  toast.success('Saved')
+                  load()
+                  family.reload()
+                  return null
+                }}
+              />
+            </DialogContent>
+          </Dialog>
 
-      <p className="text-xs text-text-muted">{summaryResult.disclaimer}</p>
-    </div>
-  )}
-</section>
+          <UploadRecordDialog memberId={id} memberName={member.name} open={uploading} onOpenChange={setUploadOpen} onUploaded={loadRecords} />
 
-        {/* Prescriptions */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-medium text-foreground">Prescriptions & records</h2>
-            <button
-              onClick={() => setShowUploadForm(!showUploadForm)}
-              className="text-sm px-3 py-1.5 rounded-full bg-sage text-white hover:opacity-90 transition"
-            >
-              {showUploadForm ? 'Cancel' : '+ Add prescription'}
-            </button>
-          </div>
+          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {member.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Their {records.length} {records.length === 1 ? 'record' : 'records'}, vaccinations and uploaded files are deleted too. This can&apos;t be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Keep {first}</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={remove} disabled={deleting}>
+                  {deleting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                  {deleting ? 'Deleting…' : `Delete ${first}`}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+    </Page>
+  )
+}
 
-          {showUploadForm && (
-            <form onSubmit={handleUploadRecord} className="bg-card rounded-2xl border border-border p-4 mb-4 flex flex-col gap-3">
-              <select value={recordType} onChange={(e) => setRecordType(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage">
-                <option value="prescription">Prescription</option>
-                <option value="lab_report">Lab report</option>
-                <option value="other">Other</option>
-              </select>
-              <input placeholder="Doctor name (optional)" value={doctorName} onChange={(e) => setDoctorName(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Hospital / clinic name (optional)" value={hospitalName} onChange={(e) => setHospitalName(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <label className="px-3 py-2 rounded-xl border border-border bg-background text-sm text-text-secondary cursor-pointer hover:border-sage transition flex items-center gap-2">
-  <i className="ti ti-upload" style={{ fontSize: 16 }}></i>
-  {file ? file.name : 'Choose a file to upload'}
-  <input
-    type="file"
-    accept="image/*,application/pdf"
-    onChange={(e) => setFile(e.target.files?.[0] || null)}
-    className="hidden"
-  />
-</label>
-              <button type="submit" disabled={uploading}
-                className="px-4 py-2 rounded-xl bg-taupe text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
-                {uploading ? 'Uploading…' : 'Upload'}
-              </button>
-            </form>
-          )}
-
-          <div className="flex flex-col gap-2">
-            {records.length === 0 && (
-              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary">
-                No prescriptions yet for {member.name}.
-              </div>
-            )}
-            {records.map((r) => (
-              <Link
-                key={r.id}
-                href={`/profile/family/${id}/records/${r.id}`}
-                className="bg-card rounded-2xl border border-border p-4 hover:border-sage transition block"
-              >
-                <p className="text-sm font-medium text-foreground capitalize">{r.record_type?.replace('_', ' ')}</p>
-                <p className="text-xs text-text-secondary">
-                  {new Date(r.created_at).toLocaleDateString()} · {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
-      <Toast message="Prescription uploaded" show={showToast} />
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[112px] min-w-0 flex-col gap-2 rounded-xl bg-canvas p-4">
+      <p className="text-[14px] text-ink-2">{label}</p>
+      <div className="mt-auto min-w-0">{children}</div>
     </div>
   )
 }
+
