@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
   try {
-    const { userId, messages } = await req.json()
+    const user = await getUserFromRequest(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!userId || !messages) {
-      return NextResponse.json({ error: 'Missing userId or messages' }, { status: 400 })
+    const userId = user.id
+    const { messages } = await req.json()
+
+    if (!messages) {
+      return NextResponse.json({ error: 'Missing messages' }, { status: 400 })
     }
 
     // Gather full family + records context

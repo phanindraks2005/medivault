@@ -191,10 +191,14 @@ const handleDeleteMember = async () => {
       fetchRecords()
       setShowToast(true)
       setTimeout(() => setShowToast(false), 2500)
+      const { data: { session } } = await supabase.auth.getSession()
       fetch('/api/extract-record', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: insertedRecord.id, filePath }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ recordId: insertedRecord.id }),
       }).then(() => fetchRecords())
     }
     setUploading(false)

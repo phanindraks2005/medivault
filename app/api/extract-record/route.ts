@@ -1,27 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-// Server-side client with service role key (bypasses RLS, safe since this only runs on server)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
   try {
-    const { recordId, filePath } = await req.json()
+    const user = await getUserFromRequest(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!recordId || !filePath) {
-      return NextResponse.json({ error: 'Missing recordId or filePath' }, { status: 400 })
+    const { recordId } = await req.json()
+
+    if (!recordId) {
+      return NextResponse.json({ error: 'Missing recordId' }, { status: 400 })
+    }
+
+    // Look the record up by owner too, and use its stored path rather than
+    // one supplied by the client.
+    const { data: record } = await supabaseAdmin
+      .from('medical_records')
+      .select('file_url, doctor_name')
+      .eq('id', recordId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!record) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     // Download the file from Supabase Storage
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('medical-records')
-      .download(filePath)
+      .download(record.file_url)
 
     if (downloadError || !fileData) {
       return NextResponse.json({ error: 'Failed to download file' }, { status: 500 })
@@ -58,20 +70,15 @@ If this doesn't look like a prescription or medical report, return {"error": "no
     const extracted = JSON.parse(cleaned)
 
     // Save extracted data back to the record
-    const { data: existingRecord } = await supabaseAdmin
-  .from('medical_records')
-  .select('doctor_name')
-  .eq('id', recordId)
-  .single()
-
-const { error: updateError } = await supabaseAdmin
-  .from('medical_records')
-  .update({
-    extracted_data: extracted,
-    doctor_name: existingRecord?.doctor_name || extracted.doctor_name || null,
-    record_date: extracted.record_date || null,
-  })
-  .eq('id', recordId)
+    const { error: updateError } = await supabaseAdmin
+      .from('medical_records')
+      .update({
+        extracted_data: extracted,
+        doctor_name: record.doctor_name || extracted.doctor_name || null,
+        record_date: extracted.record_date || null,
+      })
+      .eq('id', recordId)
+      .eq('user_id', user.id)
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
