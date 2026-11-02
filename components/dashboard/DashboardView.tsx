@@ -237,6 +237,7 @@ export default function DashboardView({ status, members, colors, vaccinations, r
             id="family-heading"
             title="Family"
             count={loading ? undefined : members.length}
+            hint="Allergies show in red"
             action={
               !demo && (
                 <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/profile?add=1" />}>
