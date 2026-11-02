@@ -1,214 +1,199 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { motion } from 'framer-motion'
+import { useFamily } from '@/lib/family-context'
+import { ageFrom, allergyList, relationLabel } from '@/lib/family'
+import { dayLeaf, daysFromToday, dueLabel } from '@/lib/dates'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import MemberAvatar from '@/components/app/MemberAvatar'
+import DateLeaf from '@/components/app/DateLeaf'
+import MemberForm, { toRow } from '@/components/app/MemberForm'
+import { EmptyLine, ErrorLine, Page, PageHeader } from '@/components/app/kit'
+import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
+import { cn } from '@/lib/utils'
 
-type FamilyMember = {
-  id: string
-  name: string
-  relation: string
-  dob: string
-  gender: string
-  blood_group: string
+export default function FamilyPage() {
+  return (
+    <Suspense>
+      <Family />
+    </Suspense>
+  )
 }
 
-function initials(name: string) {
-  return name?.trim()?.[0]?.toUpperCase() || '?'
-}
+function Family() {
+  const { status, members, colors, reload } = useFamily()
+  const router = useRouter()
+  const params = useSearchParams()
+  const [adding, setAdding] = useState(params.get('add') === '1')
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const [records, setRecords] = useState<Pick<MedicalRecord, 'family_member_id' | 'extracted_data'>[]>([])
+  const [extra, setExtra] = useState<'loading' | 'ready' | 'error'>('loading')
 
-export default function ProfilePage() {
-  const [email, setEmail] = useState('')
-  const [members, setMembers] = useState<FamilyMember[]>([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [allergies, setAllergies] = useState('')
-  const [name, setName] = useState('')
-  const [relation, setRelation] = useState('')
-  const [dob, setDob] = useState('')
-  const [gender, setGender] = useState('')
-  const [bloodGroup, setBloodGroup] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [emergencyContactName, setEmergencyContactName] = useState('')
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
-  const [knownConditions, setKnownConditions] = useState('')
-  const [heightCm, setHeightCm] = useState('')
-  const [weightKg, setWeightKg] = useState('')
-
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setEmail(user.email || '')
-
-    const { data, error } = await supabase
-      .from('family_members')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    if (error) setError(error.message)
-    else setMembers(data || [])
-  }
-
-  useEffect(() => {
-    fetchData()
+  const load = useCallback(async () => {
+    setExtra('loading')
+    const [v, r] = await Promise.all([
+      supabase.from('vaccinations').select('id, family_member_id, vaccine_name, date_given, next_due_date'),
+      supabase.from('medical_records').select('family_member_id, extracted_data'),
+    ])
+    if (v.error || r.error) return setExtra('error')
+    setVaccinations(v.data || [])
+    setRecords(r.data || [])
+    setExtra('ready')
   }, [])
 
-  const self = members.find((m) => m.relation?.toLowerCase() === 'self')
-  const others = members.filter((m) => m.relation?.toLowerCase() !== 'self')
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
 
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setError('Not logged in')
-      setLoading(false)
-      return
-    }
-    const { error } = await supabase.from('family_members').insert({
-      user_id: user.id,
-      name,
-      relation,
-      dob: dob || null,
-      gender,
-      blood_group: bloodGroup,
-      allergies: allergies || null,
-      emergency_contact_name: emergencyContactName || null,
-      emergency_contact_phone: emergencyContactPhone || null,
-      known_conditions: knownConditions || null,
-      height_cm: heightCm ? parseFloat(heightCm) : null,
-      weight_kg: weightKg ? parseFloat(weightKg) : null,
-    })
-    if (error) {
-      setError(error.message)
-    } else {
-      setName(''); setRelation(''); setDob(''); setGender(''); setBloodGroup(''); setAllergies('')
-      setEmergencyContactName(''); setEmergencyContactPhone(''); setKnownConditions(''); setHeightCm(''); setWeightKg('')
-      setShowAddForm(false)
-      fetchData()
-    }
-    setLoading(false)
+  // Opened from the sidebar "+" with ?add=1; drop the flag once the dialog closes.
+  const setOpen = (open: boolean) => {
+    setAdding(open)
+    if (!open && params.get('add')) router.replace('/profile')
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/auth'
+  const ordered = [...members].sort((a, b) => (a.relation?.toLowerCase() === 'self' ? -1 : b.relation?.toLowerCase() === 'self' ? 1 : 0))
+  const loading = status === 'loading'
+
+  const meds = (id: string) => {
+    const set = new Set<string>()
+    for (const r of records) if (r.family_member_id === id) for (const m of r.extracted_data?.medicines || []) if (m?.name) set.add(m.name.toLowerCase())
+    return set.size
   }
+  const next = (id: string) =>
+    vaccinations
+      .filter((v) => v.family_member_id === id && v.next_due_date)
+      .map((v) => ({ ...v, days: daysFromToday(v.next_due_date!) }))
+      .sort((a, b) => a.days - b.days)[0]
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-5 py-6">
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/dashboard" className="text-sm text-text-secondary hover:text-foreground transition">
-            <i className="ti ti-arrow-left" style={{ marginRight: 4 }}></i>Back
-          </Link>
-          <button onClick={handleLogout} className="text-sm text-text-secondary hover:text-foreground transition">
-            Log out
-          </button>
-        </div>
+    <Page>
+      <PageHeader
+        title="Family"
+        sub={loading ? 'Loading your family…' : `${members.length} ${members.length === 1 ? 'person' : 'people'}, each in their own colour. Allergies show in red.`}
+        actions={
+          <Button onClick={() => setOpen(true)}>
+            <Plus aria-hidden="true" /> Add a family member
+          </Button>
+        }
+      />
 
-        {error && (
-          <div className="mb-6 px-4 py-3 rounded-2xl bg-red-50 text-red-800 text-sm">{error}</div>
+      {status === 'error' && <ErrorLine onRetry={reload}>Couldn&apos;t load your family. Check your connection and try again.</ErrorLine>}
+      {extra === 'error' && <ErrorLine onRetry={load}>Couldn&apos;t load medicines and due dates.</ErrorLine>}
+
+      <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
+        {loading &&
+          [0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[196px] rounded-xl bg-canvas p-5">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            </div>
+          ))}
+
+        {!loading && members.length === 0 && status !== 'error' && (
+          <div className="md:col-span-2">
+            <EmptyLine action={<Button size="sm" nativeButton={false} render={<Link href="/onboarding" />}>Set up your profile</Button>}>
+              Start with your own profile, then add the people you look after.
+            </EmptyLine>
+          </div>
         )}
 
-        {/* User's own profile */}
-        <section className="mb-8">
-          {self ? (
-            <Link href={`/profile/family/${self.id}`} className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4 hover:border-sage transition block">
-              <div className="w-14 h-14 rounded-full bg-sage flex items-center justify-center text-white text-xl font-medium">
-                {initials(self.name)}
+        {ordered.map((m) => {
+          const allergies = allergyList(m.allergies)
+          const age = ageFrom(m.dob)
+          const due = next(m.id)
+          const n = meds(m.id)
+          return (
+            <Link
+              key={m.id}
+              href={`/profile/family/${m.id}`}
+              className="group flex flex-col rounded-xl bg-canvas p-5 transition-[box-shadow,background-color] duration-150 hover:bg-surface hover:shadow-[var(--shadow-lift)] hover:ring-1 hover:ring-line"
+            >
+              <div className="flex items-start gap-3.5">
+                <MemberAvatar name={m.name} color={colors[m.id]} size={48} />
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-[18px] font-semibold leading-tight">{m.name}</h2>
+                  <p className="mt-0.5 text-[14px] text-ink-3 num">
+                    {[relationLabel(m.relation), age !== null ? `${age} yrs` : null, m.gender].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[12px] text-ink-3">Blood group</p>
+                  <p className={cn('font-display text-[30px] font-bold leading-none num', !m.blood_group && 'text-line-strong')}>{m.blood_group || '—'}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-lg font-medium text-foreground">{self.name}</p>
-                <p className="text-sm text-text-secondary">{email}</p>
-                <p className="text-xs text-text-secondary mt-1 capitalize">
-                  {self.gender || '—'} · {self.blood_group || '—'} {self.dob && `· DOB ${self.dob}`}
+
+              <div className="mt-4 flex min-h-6 flex-wrap gap-1.5">
+                {allergies.map((a) => (
+                  <Badge key={a} variant="overdue">
+                    Allergic: {a}
+                  </Badge>
+                ))}
+                {m.known_conditions && <Badge variant="neutral">{m.known_conditions}</Badge>}
+                {!allergies.length && !m.known_conditions && <span className="text-[14px] text-ink-3">No allergies or conditions noted</span>}
+              </div>
+
+              <div className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5">
+                {extra === 'loading' ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : due ? (
+                  <>
+                    <DateLeaf {...dayLeaf(due.next_due_date!)} tone={due.days < 0 ? 'red' : due.days <= 30 ? 'due' : 'plain'} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium">{due.vaccine_name}</p>
+                      <p className={cn('text-[13px] num', due.days < 0 ? 'font-medium text-red-ink' : due.days <= 30 ? 'text-due-ink' : 'text-ink-3')}>
+                        {dueLabel(due.days)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="px-1 py-2.5 text-[14px] text-ink-3">No vaccinations due</p>
+                )}
+                <p className="shrink-0 pr-1 text-right text-[13px] text-ink-3 num">
+                  {n} {n === 1 ? 'medicine' : 'medicines'}
                 </p>
               </div>
             </Link>
-          ) : (
-            <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-sage flex items-center justify-center text-white text-xl font-medium">
-                {initials(email)}
-              </div>
-              <div>
-                <p className="text-lg font-medium text-foreground">You</p>
-                <p className="text-sm text-text-secondary">{email}</p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Family members */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-medium text-foreground">Your family</h2>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="text-sm px-3 py-1.5 rounded-full bg-sage text-white hover:opacity-90 transition"
-            >
-              {showAddForm ? 'Cancel' : '+ Add someone'}
-            </button>
-          </div>
-
-          {showAddForm && (
-            <form onSubmit={handleAddMember} className="bg-card rounded-2xl border border-border p-4 mb-4 flex flex-col gap-3">
-              <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Relation (self, father, mother...)" value={relation} onChange={(e) => setRelation(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Gender" value={gender} onChange={(e) => setGender(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Blood group" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Allergies (optional, comma separated)" value={allergies} onChange={(e) => setAllergies(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Known conditions (optional, e.g. diabetes, asthma)" value={knownConditions} onChange={(e) => setKnownConditions(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Height (cm)" type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-                <input placeholder="Weight (kg)" type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              </div>
-              <input placeholder="Emergency contact name (optional)" value={emergencyContactName} onChange={(e) => setEmergencyContactName(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Emergency contact phone (optional)" value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <button type="submit" disabled={loading}
-                className="mt-1 px-4 py-2 rounded-xl bg-sage text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
-                {loading ? 'Adding…' : 'Add family member'}
-              </button>
-            </form>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            {others.map((m) => (
-              <motion.div key={m.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  href={`/profile/family/${m.id}`}
-                  className="bg-sage-light rounded-2xl p-4 hover:opacity-90 transition block"
-                >
-                  <div className="w-9 h-9 rounded-full bg-sage flex items-center justify-center text-white text-sm font-medium mb-2">
-                    {initials(m.name)}
-                  </div>
-                  <p className="text-sm font-medium text-foreground">{m.name}</p>
-                  <p className="text-xs text-text-secondary capitalize">{m.relation} · {m.blood_group || '—'}</p>
-                </Link>
-              </motion.div>
-            ))}
-            {others.length === 0 && (
-              <div className="col-span-2 bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary">
-                No family members added yet.
-              </div>
-            )}
-          </div>
-        </section>
+          )
+        })}
       </div>
-    </div>
+
+      <Dialog open={adding} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Add a family member</DialogTitle>
+            <DialogDescription>They get their own colour on every screen. Only the name is required.</DialogDescription>
+          </DialogHeader>
+          <MemberForm
+            submitLabel="Add family member"
+            busyLabel="Adding…"
+            onCancel={() => setOpen(false)}
+            onSubmit={async (values) => {
+              const { data: { user } } = await supabase.auth.getUser()
+              if (!user) return 'Your session has ended. Log in again.'
+              const { error } = await supabase.from('family_members').insert({ user_id: user.id, ...toRow(values) })
+              if (error) return "Couldn't save. Check your connection and try again."
+              await reload()
+              setOpen(false)
+              toast.success(`${values.name.trim()} added`)
+              return null
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </Page>
   )
 }
