@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { supabase, authHeaders } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { dayLeaf, formatDay } from '@/lib/dates'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -53,7 +53,6 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   const router = useRouter()
   const { members } = useFamily()
   const member = members.find((m) => m.id === id)
-  const first = member?.name.split(' ')[0] || 'Records'
 
   const [record, setRecord] = useState<RecordRow | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading')
@@ -127,7 +126,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   if (status === 'missing') {
     return (
       <Page>
-        <PageHeader back={{ href: `/profile/family/${id}`, label: first }} title="Record not found" sub="It may have been deleted." />
+        <PageHeader back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }} title="Record not found" sub="It may have been deleted." />
       </Page>
     )
   }
@@ -140,7 +139,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   return (
     <Page>
       <PageHeader
-        back={{ href: `/profile/family/${id}`, label: first }}
+        back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }}
         lead={date ? <DateLeaf {...dayLeaf(date)} size="lg" /> : <Skeleton className="h-[62px] w-[60px] rounded-[10px]" />}
         title={record ? typeLabel(record.record_type) : <Skeleton className="h-8 w-40" />}
         sub={
@@ -251,9 +250,10 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
               title="Original file"
               action={
                 fileUrl && (
-                  <Button variant="ghost" size="sm" nativeButton={false} render={<a href={fileUrl} target="_blank" rel="noreferrer" />}>
+                  <a href={fileUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                     Open <ExternalLink aria-hidden="true" />
-                  </Button>
+                    <span className="sr-only">(opens in a new tab)</span>
+                  </a>
                 )
               }
             />

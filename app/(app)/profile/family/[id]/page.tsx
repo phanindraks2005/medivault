@@ -9,7 +9,7 @@ import { supabase, authHeaders } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
-import { Button } from '@/components/ui/button'
+import { Button, ButtonLink } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -237,9 +237,9 @@ function Member({ id }: { id: string }) {
         actions={
           member && (
             <>
-              <Button variant="outline" nativeButton={false} render={<Link href={`/profile/family/${id}/emergency`} />}>
+              <ButtonLink variant="outline" href={`/profile/family/${id}/emergency`}>
                 <CreditCard aria-hidden="true" /> Emergency card
-              </Button>
+              </ButtonLink>
               <Button variant="outline" onClick={() => setEditing(true)}>
                 <Pencil aria-hidden="true" /> Edit
               </Button>
@@ -340,9 +340,9 @@ function Member({ id }: { id: string }) {
             count={status === 'ready' ? vaccinations.length : undefined}
             hint="Next due first"
             action={
-              <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/profile/family/${id}/vaccinations`} />}>
+              <ButtonLink variant="ghost" size="sm" href={`/profile/family/${id}/vaccinations`}>
                 Manage <ChevronRight aria-hidden="true" />
-              </Button>
+              </ButtonLink>
             }
           />
           {status === 'loading' && <RowsSkeleton count={3} />}

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ButtonLink } from '@/components/ui/button'
 import { Stage, StageProvider } from '@/components/landing/Stage'
 import { FamilyScene, PolicyScene, PrescriptionScene } from '@/components/landing/scenes'
 import { AddMemberDialog, LandingNav, MemberTabs, Reveal, Wordmark } from '@/components/landing/interactive'
@@ -144,12 +144,12 @@ export default function Landing() {
                   Photograph a prescription and MediVault reads the doctor, the date and every medicine. Each person gets their own colour; allergies stay in red.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-3">
-                  <Button size="lg" nativeButton={false} render={<Link href="/demo" />}>
+                  <ButtonLink size="lg" href="/demo">
                     Try the demo <ArrowRight aria-hidden="true" />
-                  </Button>
-                  <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/auth?mode=signup" />}>
+                  </ButtonLink>
+                  <ButtonLink size="lg" variant="outline" href="/auth?mode=signup">
                     Create an account
-                  </Button>
+                  </ButtonLink>
                 </div>
                 <p className="mt-4 text-[14px] text-ink-3">The demo needs no account. It runs on a sample family.</p>
               </div>
@@ -256,12 +256,12 @@ export default function Landing() {
                 <MemberTabs />
               </Reveal>
               <Reveal delay={0.14} className="mt-12 flex flex-wrap gap-3">
-                <Button size="lg" variant="navy" nativeButton={false} render={<Link href="/demo" />}>
+                <ButtonLink size="lg" variant="navy" href="/demo">
                   See it in the demo <ArrowRight aria-hidden="true" />
-                </Button>
-                <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/auth?mode=signup" />}>
+                </ButtonLink>
+                <ButtonLink size="lg" variant="outline" href="/auth?mode=signup">
                   Make one for your family
-                </Button>
+                </ButtonLink>
               </Reveal>
             </section>
 

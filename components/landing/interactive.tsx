@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
+import { ButtonLink } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import MemberAvatar from '@/components/app/MemberAvatar'
@@ -56,18 +56,18 @@ export function LandingNav() {
       </ul>
       <div className="flex items-center gap-1">
       {!signedIn && (
-        <Button variant="ghost" className="lg:hidden" nativeButton={false} render={<Link href="/auth" />}>
+        <ButtonLink variant="ghost" className="lg:hidden" href="/auth">
           Log in
-        </Button>
+        </ButtonLink>
       )}
       {signedIn ? (
-        <Button nativeButton={false} render={<Link href="/dashboard" />}>
+        <ButtonLink href="/dashboard">
           Open dashboard <ArrowRight aria-hidden="true" />
-        </Button>
+        </ButtonLink>
       ) : (
-        <Button nativeButton={false} render={<Link href="/demo" />}>
+        <ButtonLink href="/demo">
           Try the demo <ArrowRight aria-hidden="true" />
-        </Button>
+        </ButtonLink>
       )}
       </div>
     </nav>
@@ -222,9 +222,9 @@ export function AddMemberDialog() {
         </Badge>
       </div>
 
-      <Button size="lg" className="mt-6 w-full" nativeButton={false} render={<Link href="/demo" />}>
+      <ButtonLink size="lg" className="mt-6 w-full" href="/demo">
         Try the demo <ArrowRight aria-hidden="true" />
-      </Button>
+      </ButtonLink>
       <p className="mt-3 text-center text-[14px] text-ink-3">
         Ready for your own family?{' '}
         <Link href="/auth?mode=signup" className="font-medium text-band underline-offset-4 hover:underline">

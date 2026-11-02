@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel } from '@/lib/dates'
-import { Button } from '@/components/ui/button'
+import { Button, ButtonLink } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -105,7 +105,7 @@ function Family() {
 
         {!loading && members.length === 0 && status !== 'error' && (
           <div className="md:col-span-2">
-            <EmptyLine action={<Button size="sm" nativeButton={false} render={<Link href="/onboarding" />}>Set up your profile</Button>}>
+            <EmptyLine action={<ButtonLink size="sm" href="/onboarding">Set up your profile</ButtonLink>}>
               Start with your own profile, then add the people you look after.
             </EmptyLine>
           </div>

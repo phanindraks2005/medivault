@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
@@ -56,4 +57,14 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+// Looks like a button, behaves and is announced as a link (Cmd-click, middle-click, "link" to screen readers).
+function ButtonLink({
+  className,
+  variant = "default",
+  size = "default",
+  ...props
+}: React.ComponentProps<typeof Link> & VariantProps<typeof buttonVariants>) {
+  return <Link data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />
+}
+
+export { Button, ButtonLink, buttonVariants }

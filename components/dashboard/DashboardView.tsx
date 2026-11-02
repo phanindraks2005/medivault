@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion } from 'motion/react'
 import { AlertTriangle, ChevronRight, MessageCircle, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, ButtonLink } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import DateLeaf from '@/components/app/DateLeaf'
@@ -108,12 +108,12 @@ export default function DashboardView({ status, members, colors, vaccinations, r
           <p className={cn('mt-1.5 max-w-[64ch] text-[16px]', overdue.length && !loading ? 'text-ink' : 'text-ink-2')}>{finding}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" nativeButton={false} render={<Link href={demo ? signUp : '/doc'} />}>
+          <ButtonLink variant="outline" href={demo ? signUp : '/doc'}>
             <MessageCircle aria-hidden="true" /> Ask Doc
-          </Button>
-          <Button nativeButton={false} render={<Link href={addHref} />}>
+          </ButtonLink>
+          <ButtonLink href={addHref}>
             <Plus aria-hidden="true" /> Add a prescription
-          </Button>
+          </ButtonLink>
         </div>
       </header>
 
@@ -216,9 +216,9 @@ export default function DashboardView({ status, members, colors, vaccinations, r
           {!loading && records.length === 0 && (
             <EmptyLine
               action={
-                <Button size="sm" nativeButton={false} render={<Link href={addHref} />}>
+                <ButtonLink size="sm" href={addHref}>
                   <Plus aria-hidden="true" /> Add a prescription
-                </Button>
+                </ButtonLink>
               }
             >
               Upload a photo or PDF of a prescription. MediVault reads the doctor, the date and every medicine.
@@ -243,15 +243,15 @@ export default function DashboardView({ status, members, colors, vaccinations, r
             hint="Allergies show in red"
             action={
               !demo && (
-                <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/profile?add=1" />}>
+                <ButtonLink variant="ghost" size="sm" href="/profile?add=1">
                   <Plus aria-hidden="true" /> Add
-                </Button>
+                </ButtonLink>
               )
             }
           />
           {loading && <RowsSkeleton count={4} />}
           {!loading && members.length === 0 && (
-            <EmptyLine action={<Button size="sm" nativeButton={false} render={<Link href="/onboarding" />}>Set up your profile</Button>}>
+            <EmptyLine action={<ButtonLink size="sm" href="/onboarding">Set up your profile</ButtonLink>}>
               Add your own profile, then the people you look after.
             </EmptyLine>
           )}

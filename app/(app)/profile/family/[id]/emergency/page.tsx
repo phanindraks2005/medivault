@@ -59,7 +59,6 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
     load()
   }, [load])
 
-  const first = card?.name.split(' ')[0] || 'Back'
   const allergies = allergyList(card?.allergies)
   const conditions = allergyList(card?.known_conditions)
   const age = ageFrom(card?.dob)
@@ -69,7 +68,7 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
     <Page className="print:p-0">
       <div className="print:hidden">
         <PageHeader
-          back={{ href: `/profile/family/${id}`, label: first }}
+          back={{ href: `/profile/family/${id}`, label: card?.name || 'Back' }}
           title="Emergency card"
           sub="Show it on this screen or print it for a wallet or the fridge door."
           actions={

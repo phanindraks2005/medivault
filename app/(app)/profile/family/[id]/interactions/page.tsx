@@ -92,7 +92,7 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
   return (
     <Page>
       <PageHeader
-        back={{ href: `/profile/family/${id}`, label: first }}
+        back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }}
         lead={member && <MemberAvatar name={member.name} color={colors[id]} size={48} />}
         title="Interaction check"
         sub={`Checks ${member ? `${first}'s` : 'their'} medicines against each other, and against a new one before anyone takes it.`}
