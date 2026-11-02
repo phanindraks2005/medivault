@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getModel, withRetry, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing text to translate' }, { status: 400 })
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+    const model = getModel()
 
     const prompt = `You are a medical translator that explains confusing doctor's notes, lab reports, or medical jargon in plain, simple language for a non-medical person. Here's the text:
 
@@ -34,14 +32,15 @@ Return ONLY valid JSON, no markdown, no preamble:
   "disclaimer": "This is a plain-language explanation only, not medical advice. Always discuss your results with your doctor."
 }`
 
-    const result = await model.generateContent(prompt)
+    const result = await withRetry(() => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)
 
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err) {
     console.error('Jargon translate error:', err)
-    return NextResponse.json({ error: err.message || 'Translation failed' }, { status: 500 })
+    const { message, status } = aiError(err, "Couldn't translate that. Please try again.")
+    return NextResponse.json({ error: message }, { status })
   }
 }

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getModel, withRetry, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,10 +56,7 @@ Keep responses conversational, warm, and concise — this is a chat, not a repor
 FAMILY HEALTH DATA:
 ${contextBlock || 'No family members or records added yet.'}`
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-flash-latest',
-      systemInstruction: systemPrompt,
-    })
+    const model = getModel({ systemInstruction: systemPrompt })
 
     const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
       role: m.role === 'user' ? 'user' : 'model',
@@ -71,12 +66,13 @@ ${contextBlock || 'No family members or records added yet.'}`
     const lastMessage = messages[messages.length - 1]
 
     const chat = model.startChat({ history })
-    const result = await chat.sendMessage(lastMessage.content)
+    const result = await withRetry(() => chat.sendMessage(lastMessage.content))
     const responseText = result.response.text()
 
     return NextResponse.json({ reply: responseText })
-  } catch (err: any) {
+  } catch (err) {
     console.error('Doc chat error:', err)
-    return NextResponse.json({ error: err.message || 'Chat failed' }, { status: 500 })
+    const { message, status } = aiError(err, "Doc couldn't answer that. Please try again.")
+    return NextResponse.json({ error: message }, { status })
   }
 }

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getModel, withRetry, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing medicine name' }, { status: 400 })
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+    const model = getModel()
 
     const prompt = `You are a medicine information assistant for an Indian audience. Give info about the medicine "${medicineName}". Return ONLY valid JSON, no markdown, no preamble:
 
@@ -33,14 +31,15 @@ export async function POST(req: NextRequest) {
 
 If "${medicineName}" is not a recognizable medicine, return {"error": "Medicine not found. Please check the spelling or try another name."}`
 
-    const result = await model.generateContent(prompt)
+    const result = await withRetry(() => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)
 
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err) {
     console.error('Medicine lookup error:', err)
-    return NextResponse.json({ error: err.message || 'Lookup failed' }, { status: 500 })
+    const { message, status } = aiError(err, "Couldn't look that up. Please try again.")
+    return NextResponse.json({ error: message }, { status })
   }
 }

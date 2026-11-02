@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getModel, withRetry, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing symptoms' }, { status: 400 })
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+    const model = getModel()
 
     const prompt = `You are a cautious health guidance assistant, NOT a doctor. A user describes these symptoms: "${symptoms}"
 
@@ -33,14 +31,15 @@ Return ONLY valid JSON, no markdown, no preamble:
   "disclaimer": "This is general guidance only, not a medical diagnosis. Please consult a doctor for proper evaluation."
 }`
 
-    const result = await model.generateContent(prompt)
+    const result = await withRetry(() => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)
 
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err) {
     console.error('Symptom triage error:', err)
-    return NextResponse.json({ error: err.message || 'Triage failed' }, { status: 500 })
+    const { message, status } = aiError(err, "Couldn't check your symptoms. Please try again.")
+    return NextResponse.json({ error: message }, { status })
   }
 }
