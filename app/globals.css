@@ -230,6 +230,23 @@ input:-webkit-autofill:focus {
   transition: background-color 5000s ease-in-out 0s;
 }
 
+/* Motion renders entrance states inline on the server (style="opacity:0;…").
+   If the app is slow to load or its script fails, reveal them anyway after a
+   short wait so no section is left blank. Once the app has loaded, the
+   js-ready class switches this off and Motion's own entrances take over.
+   The no-script case is handled by a <noscript> style in app/layout.tsx. */
+@keyframes reveal-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+html:not(.js-ready) :is([style^="opacity:0;"], [style="opacity:0"]) {
+  animation: reveal-failsafe 0.4s ease-out 2.5s forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
