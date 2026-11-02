@@ -1,240 +1,399 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase, authHeaders } from '@/lib/supabase'
-import Nav from '@/components/Nav'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import FloatingMeds from '@/components/FloatingMeds'
+import { useRouter } from 'next/navigation'
+import { ChevronRight, UserPlus } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import Nav from '@/components/Nav'
+import QuickAnswers from '@/components/QuickAnswers'
+import { ageFrom, allergyList, memberColors, relationLabel } from '@/lib/family'
+import { dayLeaf, daysFromToday, dueLabel, formatDay, parseDay, startOfToday } from '@/lib/dates'
+
+type Member = {
+  id: string
+  name: string
+  relation: string | null
+  dob: string | null
+  blood_group: string | null
+  allergies: string | null
+  created_at: string
+}
+
+type Vaccination = {
+  id: string
+  family_member_id: string
+  vaccine_name: string
+  date_given: string | null
+  next_due_date: string | null
+}
+
+type MedicalRecord = {
+  id: string
+  family_member_id: string
+  record_type: string | null
+  record_date: string | null
+  created_at: string
+  doctor_name: string | null
+  hospital_name: string | null
+  extracted_data: { error?: string; medicines?: { name: string }[] } | null
+}
+
+// How far ahead "Coming up" looks. Overdue items always show.
+const LOOKAHEAD_DAYS = 60
 
 export default function Dashboard() {
-  const [userName, setUserName] = useState('')
-  const [memberCount, setMemberCount] = useState(0)
-  const [recordCount, setRecordCount] = useState(0)
-  const [error, setError] = useState('')
-  const [jargonText, setJargonText] = useState('')
-  const [jargonResult, setJargonResult] = useState<any>(null)
-  const [jargonLoading, setJargonLoading] = useState(false)
-  const [medicineQuery, setMedicineQuery] = useState('')
-  const [medicineResult, setMedicineResult] = useState<any>(null)
-  const [lookupLoading, setLookupLoading] = useState(false)
+  const [members, setMembers] = useState<Member[]>([])
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const [records, setRecords] = useState<MedicalRecord[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const router = useRouter()
 
-  const [symptoms, setSymptoms] = useState('')
-  const [triageResult, setTriageResult] = useState<any>(null)
-  const [triageLoading, setTriageLoading] = useState(false)
-
-  const handleJargonTranslate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setJargonLoading(true)
-    setJargonResult(null)
-    setError('')
-    try {
-      const res = await fetch('/api/jargon-translate', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ text: jargonText }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setJargonResult(data)
-    } catch {
-      setError('Translation failed')
+  const load = useCallback(async () => {
+    setStatus('loading')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/auth')
+      return
     }
-    setJargonLoading(false)
-  }
+    const [m, v, r] = await Promise.all([
+      supabase.from('family_members').select('id, name, relation, dob, blood_group, allergies, created_at').eq('user_id', user.id),
+      supabase.from('vaccinations').select('id, family_member_id, vaccine_name, date_given, next_due_date').eq('user_id', user.id),
+      supabase
+        .from('medical_records')
+        .select('id, family_member_id, record_type, record_date, created_at, doctor_name, hospital_name, extracted_data')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ])
+    if (m.error || v.error || r.error) {
+      setStatus('error')
+      return
+    }
+    setMembers(m.data || [])
+    setVaccinations(v.data || [])
+    setRecords(r.data || [])
+    setStatus('ready')
+  }, [router])
 
   useEffect(() => {
-    const loadOverview = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
 
-      const { data: members } = await supabase
-        .from('family_members')
-        .select('id, name, relation')
-        .eq('user_id', user.id)
+  const colors = memberColors(members)
+  const memberById = Object.fromEntries(members.map((m) => [m.id, m]))
 
-      setMemberCount(members?.length || 0)
-      const self = members?.find((m) => m.relation?.toLowerCase() === 'self')
-      setUserName(self?.name || '')
+  const today = startOfToday()
+  const monthName = today.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
 
-      const { count } = await supabase
-        .from('medical_records')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+  const comingUp = vaccinations
+    .filter((v) => v.next_due_date && daysFromToday(v.next_due_date) <= LOOKAHEAD_DAYS)
+    .map((v) => ({ ...v, days: daysFromToday(v.next_due_date!) }))
+    .sort((a, b) => a.days - b.days)
+    .slice(0, 6)
 
-      setRecordCount(count || 0)
+  // Medicines per member, from all of their records that were read.
+  const medicinesByMember: Record<string, Set<string>> = {}
+  for (const r of records) {
+    for (const med of r.extracted_data?.medicines || []) {
+      if (!med?.name) continue
+      ;(medicinesByMember[r.family_member_id] ||= new Set()).add(med.name.toLowerCase())
     }
-    loadOverview()
-  }, [])
-
-  const handleMedicineLookup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLookupLoading(true)
-    setMedicineResult(null)
-    setError('')
-    try {
-      const res = await fetch('/api/medicine-lookup', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ medicineName: medicineQuery }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setMedicineResult(data)
-    } catch {
-      setError('Lookup failed')
-    }
-    setLookupLoading(false)
   }
 
-  const handleSymptomTriage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setTriageLoading(true)
-    setTriageResult(null)
-    setError('')
-    try {
-      const res = await fetch('/api/symptom-triage', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ symptoms }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setTriageResult(data)
-    } catch {
-      setError('Triage failed')
-    }
-    setTriageLoading(false)
+  // Events that land on a day of this month, for the dots on the strip.
+  const monthEvents: Record<number, { color: string; text: string }[]> = {}
+  const addEvent = (date: string | null, memberId: string, text: string) => {
+    if (!date) return
+    const d = parseDay(date)
+    if (d.getFullYear() !== today.getFullYear() || d.getMonth() !== today.getMonth()) return
+    const name = memberById[memberId]?.name?.split(' ')[0] || ''
+    ;(monthEvents[d.getDate()] ||= []).push({ color: colors[memberId] || 'var(--ink-3)', text: `${text}${name ? ` for ${name}` : ''}` })
   }
+  vaccinations.forEach((v) => addEvent(v.next_due_date, v.family_member_id, `${v.vaccine_name} due`))
+  records.forEach((r) => addEvent(r.record_date, r.family_member_id, `${r.record_type?.replace('_', ' ') || 'Record'} written`))
 
-  const urgencyStyles: Record<string, string> = {
-    mild: 'bg-sage-light text-foreground border-sage',
-    moderate: 'bg-taupe-light text-foreground border-taupe',
-    urgent: 'bg-red-950 text-red-200 border-red-700',
-  }
+  const thisMonthCount = Object.values(monthEvents).reduce((n, list) => n + list.length, 0)
+  const latest = records[0]
 
   return (
-    <div className="min-h-screen bg-background">
-      <FloatingMeds />
+    <div className="min-h-screen bg-paper pb-20 md:pb-0">
       <Nav />
-      <div className="max-w-2xl mx-auto px-5 py-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-medium text-foreground">Hey {userName || 'there'} 👋</h1>
-          <p className="text-text-secondary text-sm mt-1">Here's what's happening with your family's health</p>
-        </div>
-
-        {error && (
-          <div className="mb-6 px-4 py-3 rounded-2xl bg-red-950 text-red-200 text-sm">{error}</div>
-        )}
-
-        {/* Health report overview */}
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <i className="ti ti-heartbeat" style={{ color: 'var(--color-sage)', fontSize: 18 }}></i>
-            <h2 className="text-lg font-medium text-foreground">Health report</h2>
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-8 grid gap-10 lg:gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <main className="min-w-0 lg:pr-10 lg:border-r lg:border-rule">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <h1 className="font-display text-[40px] md:text-[48px] font-extrabold leading-none tracking-[-0.01em]">{monthName}</h1>
+            {status === 'ready' && (
+              <p className="text-ink-3">
+                {thisMonthCount === 0
+                  ? 'Nothing on the calendar this month'
+                  : `${thisMonthCount} ${thisMonthCount === 1 ? 'thing' : 'things'} on the calendar this month`}
+              </p>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-sage-light rounded-2xl p-4 border border-border">
-              <i className="ti ti-users" style={{ color: 'var(--color-sage)', fontSize: 20 }}></i>
-              <p className="text-2xl font-semibold text-foreground mt-2">{memberCount}</p>
-              <p className="text-xs text-text-secondary mt-0.5">family {memberCount === 1 ? 'member' : 'members'} tracked</p>
-            </div>
-            <div className="bg-taupe-light rounded-2xl p-4 border border-border">
-              <i className="ti ti-file-text" style={{ color: 'var(--color-taupe)', fontSize: 20 }}></i>
-              <p className="text-2xl font-semibold text-foreground mt-2">{recordCount}</p>
-              <p className="text-xs text-text-secondary mt-0.5">records saved</p>
-            </div>
-          </div>
-        </section>
 
-        {/* Medicine lookup */}
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <i className="ti ti-pill" style={{ color: 'var(--color-sage)', fontSize: 18 }}></i>
-            <h2 className="text-lg font-medium text-foreground">Look up a medicine</h2>
-          </div>
-          <form onSubmit={handleMedicineLookup} className="flex gap-2">
-            <input placeholder="e.g. Dolo 650" value={medicineQuery} onChange={(e) => setMedicineQuery(e.target.value)} required
-              className="flex-1 px-3 py-2 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-sage" />
-            <button type="submit" disabled={lookupLoading}
-              className="px-4 py-2 rounded-xl bg-sage text-[#0F1115] text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
-              {lookupLoading ? 'Searching…' : 'Search'}
-            </button>
-          </form>
-          {medicineResult && (
-            <div className="mt-3 bg-card rounded-2xl border border-border p-4">
-              <p className="text-sm font-medium text-foreground">{medicineResult.name}</p>
-              {medicineResult.common_brands_india?.length > 0 && (
-                <p className="text-xs text-text-secondary mt-1">Brands in India: {medicineResult.common_brands_india.join(', ')}</p>
-              )}
-              <p className="text-sm text-foreground mt-2">{medicineResult.uses}</p>
-              <p className="text-xs text-text-secondary mt-1">Typical dosage: {medicineResult.typical_dosage}</p>
-              <p className="text-xs text-text-secondary mt-1">Side effects: {medicineResult.side_effects?.join(', ')}</p>
-              <p className="text-xs text-text-muted mt-2">{medicineResult.disclaimer}</p>
+          <MonthStrip today={today} events={monthEvents} />
+
+          {status === 'error' && (
+            <div role="alert" className="mt-8 px-4 py-3 rounded-[6px] bg-panel flex flex-wrap items-center gap-3">
+              <p className="text-ink-2">Couldn&apos;t load your family&apos;s records. Check your connection.</p>
+              <button onClick={load} className="h-9 px-3 rounded-[6px] border border-rule bg-paper font-medium hover:border-band">
+                Try again
+              </button>
             </div>
           )}
-        </section>
 
-        {/* Symptom triage */}
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <i className="ti ti-stethoscope" style={{ color: 'var(--color-sage)', fontSize: 18 }}></i>
-            <h2 className="text-lg font-medium text-foreground">How are you feeling?</h2>
+          <section aria-labelledby="coming-up" className="mt-9">
+            <h2 id="coming-up" className="font-display text-[15px] font-bold uppercase tracking-[0.06em] text-ink-2 mb-1">
+              Coming up
+            </h2>
+            {status === 'loading' && <RowSkeleton count={2} />}
+            {status === 'ready' && comingUp.length === 0 && (
+              <p className="mt-2 px-4 py-3 rounded-[6px] bg-panel text-ink-2">
+                Nothing due in the next two months. Vaccinations with a next-due date show up here.
+              </p>
+            )}
+            {status === 'ready' && comingUp.length > 0 && (
+              <ul>
+                {comingUp.map((v) => {
+                  const leaf = dayLeaf(v.next_due_date!)
+                  const member = memberById[v.family_member_id]
+                  const overdue = v.days < 0
+                  return (
+                    <li key={v.id}>
+                      <Link
+                        href={`/profile/family/${v.family_member_id}/vaccinations`}
+                        className="grid grid-cols-[60px_1fr] md:grid-cols-[84px_1fr_auto] items-center gap-x-4 py-3.5 border-b border-rule-soft hover:bg-panel/60 transition-colors"
+                      >
+                        <DateLeaf day={leaf.day} month={leaf.month} red={overdue} />
+                        <div className="min-w-0">
+                          <p className="text-[17px] font-semibold flex items-center gap-2">
+                            <MemberChip color={colors[v.family_member_id]} />
+                            <span className="truncate">
+                              {v.vaccine_name}
+                              {member && <span className="font-normal text-ink-2"> · {member.name.split(' ')[0]}</span>}
+                            </span>
+                          </p>
+                          <p className="text-sm text-ink-3 num">
+                            {v.date_given ? `Last given ${formatDay(v.date_given)}` : 'No earlier dose recorded'}
+                          </p>
+                          <span className={`md:hidden inline-block mt-1.5 ${tagClass(overdue)}`}>{dueLabel(v.days)}</span>
+                        </div>
+                        <span className={`hidden md:inline-block ${tagClass(overdue)}`}>{dueLabel(v.days)}</span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section aria-labelledby="latest-record" className="mt-9">
+            <h2 id="latest-record" className="font-display text-[15px] font-bold uppercase tracking-[0.06em] text-ink-2 mb-1">
+              Latest record
+            </h2>
+            {status === 'loading' && <RowSkeleton count={1} />}
+            {status === 'ready' && !latest && (
+              <p className="mt-2 px-4 py-3 rounded-[6px] bg-panel text-ink-2">
+                No records yet. Open a family member and upload a prescription photo or PDF. MediVault reads the doctor, date and
+                medicines from it.
+              </p>
+            )}
+            {status === 'ready' && latest && <LatestRecord record={latest} member={memberById[latest.family_member_id]} color={colors[latest.family_member_id]} />}
+          </section>
+
+          <QuickAnswers />
+        </main>
+
+        <aside aria-labelledby="family-heading" className="lg:pl-8">
+          <div className="flex items-baseline justify-between mb-1">
+            <h2 id="family-heading" className="font-display text-[15px] font-bold uppercase tracking-[0.06em] text-ink-2">
+              Family
+            </h2>
+            <Link href="/profile" className="text-sm font-medium text-band hover:underline underline-offset-4">
+              Manage
+            </Link>
           </div>
-          <form onSubmit={handleSymptomTriage} className="flex flex-col gap-2">
-            <textarea placeholder="Describe your symptoms..." value={symptoms} onChange={(e) => setSymptoms(e.target.value)} required rows={3}
-              className="px-3 py-2 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-sage resize-none" />
-            <button type="submit" disabled={triageLoading}
-              className="self-start px-4 py-2 rounded-xl bg-taupe text-[#0F1115] text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
-              {triageLoading ? 'Checking…' : 'Get guidance'}
-            </button>
-          </form>
-          {triageResult && (
-            <div className={`mt-3 rounded-2xl border p-4 ${urgencyStyles[triageResult.urgency] || urgencyStyles.mild}`}>
-              <p className="text-sm font-medium">{triageResult.urgency_label}</p>
-              <p className="text-sm mt-2">{triageResult.general_guidance}</p>
-              <p className="text-xs mt-2"><span className="font-medium">See a doctor if:</span> {triageResult.see_doctor_if}</p>
-              <p className="text-xs opacity-70 mt-2">{triageResult.disclaimer}</p>
+          {status === 'loading' && <RowSkeleton count={3} />}
+          {status === 'ready' && members.length === 0 && (
+            <div className="mt-2 px-4 py-4 rounded-[6px] bg-panel">
+              <p className="text-ink-2">Start with your own profile, then add the people you look after.</p>
+              <Link href="/onboarding" className="mt-3 inline-flex items-center gap-2 h-10 px-3.5 rounded-[6px] bg-band text-band-ink font-semibold hover:bg-band-hover">
+                <UserPlus size={17} aria-hidden="true" /> Set up your profile
+              </Link>
             </div>
           )}
-        </section>
-
-        {/* Jargon translator */}
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <i className="ti ti-language" style={{ color: 'var(--color-sage)', fontSize: 18 }}></i>
-            <h2 className="text-lg font-medium text-foreground">Translate a doctor's note</h2>
-          </div>
-          <form onSubmit={handleJargonTranslate} className="flex flex-col gap-2">
-            <textarea placeholder="Paste any confusing medical text, lab result, or doctor's note here..." value={jargonText} onChange={(e) => setJargonText(e.target.value)} required rows={4}
-              className="px-3 py-2 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-sage resize-none" />
-            <button type="submit" disabled={jargonLoading}
-              className="self-start px-4 py-2 rounded-xl bg-sage text-[#0F1115] text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
-              {jargonLoading ? 'Translating…' : 'Explain in plain English'}
-            </button>
-          </form>
-          {jargonResult && (
-            <div className="mt-3 bg-card rounded-2xl border border-border p-4 flex flex-col gap-3">
-              <p className="text-sm text-foreground">{jargonResult.plain_explanation}</p>
-              {jargonResult.key_terms?.length > 0 && (
-                <div>
-                  <p className="text-xs text-text-secondary mb-2">Key terms</p>
-                  <div className="flex flex-col gap-1.5">
-                    {jargonResult.key_terms.map((t: any, i: number) => (
-                      <p key={i} className="text-xs text-text-secondary"><span className="text-foreground font-medium">{t.term}:</span> {t.meaning}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {jargonResult.should_be_concerned && (
-                <div className="bg-taupe-light rounded-xl p-3">
-                  <p className="text-xs text-foreground">{jargonResult.should_be_concerned}</p>
-                </div>
-              )}
-              <p className="text-xs text-text-muted">{jargonResult.disclaimer}</p>
-            </div>
+          {status === 'ready' && members.length > 0 && (
+            <ul>
+              {[...members]
+                .sort((a, b) => (a.relation?.toLowerCase() === 'self' ? -1 : b.relation?.toLowerCase() === 'self' ? 1 : a.created_at.localeCompare(b.created_at)))
+                .map((m) => {
+                  const allergies = allergyList(m.allergies)
+                  const age = ageFrom(m.dob)
+                  const meds = medicinesByMember[m.id]?.size || 0
+                  return (
+                    <li key={m.id}>
+                      <Link href={`/profile/family/${m.id}`} className="group flex items-start gap-3 py-3.5 border-b border-rule-soft">
+                        <MemberChip color={colors[m.id]} className="mt-[7px]" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[17px] font-semibold leading-snug">
+                            {m.name} <span className="font-normal text-ink-3">· {relationLabel(m.relation)}</span>
+                          </p>
+                          <p className="text-sm text-ink-3 num">
+                            {[age !== null ? `${age} yrs` : null, m.blood_group].filter(Boolean).join(' · ')}
+                            {allergies.length > 0 ? (
+                              <span className="text-red-ink font-semibold">
+                                {age !== null || m.blood_group ? ' · ' : ''}Allergic to {allergies.join(', ')}
+                              </span>
+                            ) : null}
+                          </p>
+                          <p className="text-sm text-ink-2 num">
+                            {meds === 0 ? 'No medicines on record' : `${meds} ${meds === 1 ? 'medicine' : 'medicines'} on record`}
+                          </p>
+                        </div>
+                        <ChevronRight size={18} className="mt-1 text-ink-3 group-hover:text-ink transition-colors" aria-hidden="true" />
+                      </Link>
+                    </li>
+                  )
+                })}
+            </ul>
           )}
-        </section>
+          {status === 'ready' && members.length > 0 && (
+            <Link
+              href="/profile"
+              className="mt-5 inline-flex items-center gap-2 h-10 px-3.5 rounded-[6px] border border-rule font-medium hover:border-band transition-colors"
+            >
+              <UserPlus size={17} aria-hidden="true" /> Add a family member
+            </Link>
+          )}
+        </aside>
       </div>
+    </div>
+  )
+}
+
+function tagClass(overdue: boolean) {
+  return `px-2.5 py-1 rounded-[4px] text-[13px] font-semibold whitespace-nowrap num ${
+    overdue ? 'bg-red-soft text-red-ink' : 'bg-due-soft text-due-ink'
+  }`
+}
+
+function MemberChip({ color, className = '' }: { color?: string; className?: string }) {
+  return <span aria-hidden="true" className={`inline-block shrink-0 w-2.5 h-2.5 rounded-[2px] ${className}`} style={{ background: color || 'var(--ink-3)' }} />
+}
+
+function DateLeaf({ day, month, red = false }: { day: string; month: string; red?: boolean }) {
+  return (
+    <div className={`font-display font-extrabold text-[40px] md:text-[46px] leading-[0.9] num ${red ? 'text-red' : ''}`}>
+      {day}
+      <span className="block text-[12px] font-semibold tracking-[0.08em] text-ink-3 mt-1" style={{ fontStretch: '100%' }}>
+        {month}
+      </span>
+    </div>
+  )
+}
+
+function MonthStrip({ today, events }: { today: Date; events: Record<number, { color: string; text: string }[]> }) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const todayCell = useRef<HTMLLIElement>(null)
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const days = Array.from({ length: daysInMonth }, (_, i) => new Date(today.getFullYear(), today.getMonth(), i + 1))
+
+  // On a phone the strip scrolls sideways; start it with today in view.
+  useLayoutEffect(() => {
+    const box = scroller.current
+    const cell = todayCell.current
+    if (box && cell && box.scrollWidth > box.clientWidth) {
+      box.scrollLeft = cell.offsetLeft - box.clientWidth / 2 + cell.clientWidth / 2
+    }
+  }, [])
+
+  return (
+    <div ref={scroller} className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto lg:overflow-visible [scrollbar-width:thin]">
+      <ol
+        className="grid grid-flow-col auto-cols-[46px] lg:auto-cols-fr border-t-2 border-ink border-b border-rule min-w-max lg:min-w-0"
+        aria-label="This month"
+      >
+        {days.map((d) => {
+          const n = d.getDate()
+          const isToday = n === today.getDate()
+          const isSunday = d.getDay() === 0
+          const dayEvents = events[n] || []
+          const label = `${d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}${isToday ? ', today' : ''}${
+            dayEvents.length ? `: ${dayEvents.map((e) => e.text).join(', ')}` : ''
+          }`
+          return (
+            <li
+              key={n}
+              ref={isToday ? todayCell : undefined}
+              aria-label={label}
+              className={`relative h-[70px] px-1.5 pt-1 border-r border-rule-soft last:border-r-0 ${isToday ? 'bg-band text-band-ink' : ''}`}
+            >
+              <span className={`font-display text-[20px] font-bold num ${isSunday && !isToday ? 'text-red' : ''}`}>{n}</span>
+              {isSunday && (
+                <span className={`block text-[10px] font-semibold tracking-[0.06em] ${isToday ? 'text-band-ink/80' : 'text-ink-3'}`}>SUN</span>
+              )}
+              {dayEvents.length > 0 && (
+                <span className="absolute left-1.5 bottom-2 flex gap-0.5">
+                  {dayEvents.slice(0, 3).map((e, i) => (
+                    <span key={i} className="w-2 h-2 rounded-full ring-1 ring-paper" style={{ background: e.color }} />
+                  ))}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+function LatestRecord({ record, member, color }: { record: MedicalRecord; member?: Member; color?: string }) {
+  const written = record.record_date
+  const leaf = dayLeaf(written || record.created_at)
+  const meds = record.extracted_data?.medicines?.map((m) => m.name).filter(Boolean) || []
+  const title = [record.doctor_name, record.hospital_name].filter(Boolean).join(', ')
+  let detail: string
+  if (!record.extracted_data) detail = 'Still being read'
+  else if (record.extracted_data.error) detail = "Details couldn't be read from this file"
+  else detail = meds.length ? meds.join(' · ') : 'No medicines listed'
+
+  return (
+    <Link
+      href={`/profile/family/${record.family_member_id}/records/${record.id}`}
+      className="grid grid-cols-[60px_1fr] md:grid-cols-[84px_1fr_auto] items-center gap-x-4 py-3.5 border-b border-rule-soft hover:bg-panel/60 transition-colors"
+    >
+      <DateLeaf day={leaf.day} month={leaf.month} />
+      <div className="min-w-0">
+        <p className="text-[17px] font-semibold truncate">
+          <span className="capitalize">{record.record_type?.replace('_', ' ') || 'Record'}</span>
+          {title && <span className="font-normal text-ink-2"> · {title}</span>}
+        </p>
+        <p className="text-sm text-ink-3 truncate">{detail}</p>
+        {!written && <p className="text-sm text-ink-3">Uploaded {formatDay(record.created_at)}, prescription date not read</p>}
+      </div>
+      {member && (
+        <span className="hidden md:flex items-center gap-2 text-sm text-ink-2">
+          <MemberChip color={color} /> {member.name.split(' ')[0]}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+function RowSkeleton({ count }: { count: number }) {
+  return (
+    <div aria-busy="true" aria-label="Loading">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 py-4 border-b border-rule-soft">
+          <div className="w-12 h-10 rounded-[4px] bg-rule-soft animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-2/3 rounded-[4px] bg-rule-soft animate-pulse" />
+            <div className="h-3 w-1/3 rounded-[4px] bg-rule-soft animate-pulse" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
