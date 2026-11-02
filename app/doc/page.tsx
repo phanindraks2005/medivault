@@ -96,7 +96,7 @@ export default function DocPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-background pb-[60px] md:pb-0">
       <div className="flex-shrink-0">
         <Nav />
       </div>
