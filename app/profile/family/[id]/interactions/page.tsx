@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, authHeaders } from '@/lib/supabase'
 
 const severityStyles: Record<string, string> = {
   minor: 'bg-sage-light border-sage text-foreground',
@@ -54,7 +54,7 @@ export default function InteractionCheckerPage({ params }: { params: Promise<{ i
     try {
       const res = await fetch('/api/interaction-check', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({ medicines: fullList }),
       })
       const data = await res.json()

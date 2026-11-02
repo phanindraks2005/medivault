@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, authHeaders } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
 import FloatingMeds from '@/components/FloatingMeds'
@@ -30,7 +30,7 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/jargon-translate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({ text: jargonText }),
       })
       const data = await res.json()
@@ -74,7 +74,7 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/medicine-lookup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({ medicineName: medicineQuery }),
       })
       const data = await res.json()
@@ -94,7 +94,7 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/symptom-triage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({ symptoms }),
       })
       const data = await res.json()

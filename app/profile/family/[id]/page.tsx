@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, authHeaders } from '@/lib/supabase'
 import Toast from '@/components/Toast'
 
 function initials(name: string) {
@@ -104,7 +104,7 @@ const handleGenerateSummary = async () => {
   try {
     const res = await fetch('/api/visit-summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders(),
       body: JSON.stringify({ memberName: member.name, records: recordsForSummary }),
     })
     const data = await res.json()
