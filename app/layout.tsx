@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Hind } from "next/font/google";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -15,8 +16,12 @@ const hind = Hind({
 });
 
 export const metadata: Metadata = {
-  title: "MediVault",
-  description: "Family health records with AI-assisted prescription extraction and a health copilot.",
+  title: {
+    default: "MediVault: your family's health, dated and in one place",
+    template: "%s · MediVault",
+  },
+  description:
+    "Keep every family member's prescriptions, lab reports, vaccinations and allergies in one place. MediVault reads prescriptions for you and shows what's due next.",
 };
 
 export const viewport: Viewport = {
@@ -25,11 +30,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${archivo.variable} ${hind.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${archivo.variable} ${hind.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

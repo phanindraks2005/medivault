@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" fill="none">
+  <title>A calendar leaf with a tick: nothing due</title>
+  <ellipse cx="120" cy="166" rx="84" ry="8" fill="#0b6b60" opacity=".08"/>
+  <rect x="62" y="30" width="116" height="124" rx="16" fill="#fff" stroke="#e4e6e2" stroke-width="2"/>
+  <path d="M62 46a16 16 0 0 1 16-16h84a16 16 0 0 1 16 16v16H62V46Z" fill="#0b6b60"/>
+  <rect x="88" y="18" width="9" height="24" rx="4.5" fill="#08524a"/>
+  <rect x="143" y="18" width="9" height="24" rx="4.5" fill="#08524a"/>
+  <circle cx="120" cy="106" r="28" fill="#e8f5ec"/>
+  <path d="m107 106 9 9 18-19" stroke="#1f7a44" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

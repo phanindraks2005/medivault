@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* The app is light only; dark: styles apply only inside an explicit .dark wrapper. */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* Primitives */
   --teal-50: #e6f2f0;

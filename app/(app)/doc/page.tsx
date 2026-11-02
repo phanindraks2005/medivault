@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import Nav from '@/components/Nav'
 import ReactMarkdown from 'react-markdown'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -96,9 +95,8 @@ export default function DocPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background pb-[60px] md:pb-0">
+    <div className="h-[calc(100dvh-3.5rem-5rem)] lg:h-dvh flex flex-col bg-background">
       <div className="flex-shrink-0">
-        <Nav />
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col max-w-3xl mx-auto w-full">
