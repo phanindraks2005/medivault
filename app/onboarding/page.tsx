@@ -2,157 +2,223 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'motion/react'
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
-import FloatingMeds from '@/components/FloatingMeds'
+import AuthSplit from '@/components/auth/AuthSplit'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ease } from '@/lib/motion'
+
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+const GENDERS = ['Female', 'Male', 'Other']
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [dob, setDob] = useState('')
-  const [gender, setGender] = useState('')
-  const [bloodGroup, setBloodGroup] = useState('')
-  const [allergies, setAllergies] = useState('')
-  const [knownConditions, setKnownConditions] = useState('')
-  const [heightCm, setHeightCm] = useState('')
-  const [weightKg, setWeightKg] = useState('')
-  const [emergencyContactName, setEmergencyContactName] = useState('')
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
+  const [step, setStep] = useState(0)
+  const [form, setForm] = useState({
+    name: '',
+    dob: '',
+    gender: '',
+    bloodGroup: '',
+    allergies: '',
+    knownConditions: '',
+    heightCm: '',
+    weightKg: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }))
+
+  const save = async () => {
     setLoading(true)
     setError('')
-
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      setError('Not logged in')
-      setLoading(false)
+      router.push('/auth')
       return
     }
-
     const { error } = await supabase.from('family_members').insert({
       user_id: user.id,
-      name,
+      name: form.name.trim(),
       relation: 'self',
-      dob: dob || null,
-      gender,
-      blood_group: bloodGroup,
-      allergies: allergies || null,
-      known_conditions: knownConditions || null,
-      height_cm: heightCm ? parseFloat(heightCm) : null,
-      weight_kg: weightKg ? parseFloat(weightKg) : null,
-      emergency_contact_name: emergencyContactName || null,
-      emergency_contact_phone: emergencyContactPhone || null,
+      dob: form.dob || null,
+      gender: form.gender || null,
+      blood_group: form.bloodGroup || null,
+      allergies: form.allergies || null,
+      known_conditions: form.knownConditions || null,
+      height_cm: form.heightCm ? parseFloat(form.heightCm) : null,
+      weight_kg: form.weightKg ? parseFloat(form.weightKg) : null,
+      emergency_contact_name: form.emergencyContactName || null,
+      emergency_contact_phone: form.emergencyContactPhone || null,
     })
-
     if (error) {
-      setError(error.message)
+      setError("Couldn't save your profile. Check your connection and try again.")
       setLoading(false)
     } else {
       router.push('/dashboard')
     }
   }
 
-  const handleSkip = () => {
-    router.push('/dashboard')
-  }
-
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-5 py-10">
-      <FloatingMeds />
-
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-6">
-          <Logo size={44} />
-          <h1 className="text-xl font-semibold text-foreground mt-4">Let's set up your profile</h1>
-          <p className="text-sm text-text-secondary mt-1 text-center">Just the basics for now — you can always add more later</p>
+    <AuthSplit
+      image="/illustrations/family.svg"
+      heading="Start with you, then add the people you look after"
+      points={['Parents, partner and children in one account', 'Blood group and allergies ready for the emergency card', 'You can change any of this later']}
+    >
+      <div>
+        <div className="flex items-center gap-3" aria-label={`Step ${step + 1} of 2`}>
+          {[0, 1].map((i) => (
+            <span key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <motion.span
+                className="block h-full rounded-full bg-band"
+                initial={false}
+                animate={{ width: step >= i ? '100%' : '0%' }}
+                transition={{ duration: 0.35, ease }}
+              />
+            </span>
+          ))}
+          <span className="text-[13px] font-medium text-ink-3 num">{step + 1} of 2</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-3xl p-6 shadow-2xl flex flex-col gap-3">
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Your name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-secondary mb-1.5 block">Date of birth</label>
-              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-            </div>
-            <div>
-              <label className="text-xs text-text-secondary mb-1.5 block">Gender</label>
-              <input value={gender} onChange={(e) => setGender(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Blood group</label>
-            <input value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} placeholder="e.g. O+"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Allergies (optional)</label>
-            <input value={allergies} onChange={(e) => setAllergies(e.target.value)} placeholder="comma separated"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Known conditions (optional)</label>
-            <input value={knownConditions} onChange={(e) => setKnownConditions(e.target.value)} placeholder="e.g. asthma, diabetes"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-secondary mb-1.5 block">Height (cm)</label>
-              <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-            </div>
-            <div>
-              <label className="text-xs text-text-secondary mb-1.5 block">Weight (kg)</label>
-              <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Emergency contact name (optional)</label>
-            <input value={emergencyContactName} onChange={(e) => setEmergencyContactName(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-          <div>
-            <label className="text-xs text-text-secondary mb-1.5 block">Emergency contact phone (optional)</label>
-            <input value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage" />
-          </div>
-
-          {error && (
-            <div className="px-3 py-2 rounded-xl bg-red-950 text-red-200 text-xs">{error}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 w-full py-2.5 rounded-xl bg-sage text-[#0F1115] text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+        <AnimatePresence mode="wait">
+          <motion.form
+            key={step}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.25, ease }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (step === 0) setStep(1)
+              else save()
+            }}
+            className="mt-8"
           >
-            {loading ? 'Saving…' : 'Continue'}
-          </button>
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="text-sm text-text-secondary hover:text-foreground transition"
-          >
-            Skip for now
-          </button>
-        </form>
+            {step === 0 ? (
+              <>
+                <h1 className="font-heading text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em]">About you</h1>
+                <p className="mt-2 text-ink-2">This becomes your own profile. You&apos;ll add family members next.</p>
+                <div className="mt-7 space-y-5">
+                  <Field id="name" label="Your name">
+                    <Input id="name" name="name" autoComplete="name" value={form.name} onChange={(e) => set('name')(e.target.value)} required />
+                  </Field>
+                  <Field id="dob" label="Date of birth">
+                    <Input id="dob" name="dob" type="date" autoComplete="bday" value={form.dob} onChange={(e) => set('dob')(e.target.value)} />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field id="gender" label="Gender">
+                      <Select value={form.gender || null} onValueChange={(v) => set('gender')(String(v ?? ''))}>
+                        <SelectTrigger id="gender" className="w-full">
+                          <SelectValue placeholder="Choose" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GENDERS.map((g) => (
+                            <SelectItem key={g} value={g}>
+                              {g}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field id="blood" label="Blood group">
+                      <Select value={form.bloodGroup || null} onValueChange={(v) => set('bloodGroup')(String(v ?? ''))}>
+                        <SelectTrigger id="blood" className="w-full">
+                          <SelectValue placeholder="Choose" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BLOOD_GROUPS.map((b) => (
+                            <SelectItem key={b} value={b}>
+                              {b}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h1 className="font-heading text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em]">Health basics</h1>
+                <p className="mt-2 text-ink-2">All optional. These show up on your emergency card.</p>
+                <div className="mt-7 space-y-5">
+                  <Field id="allergies" label="Allergies" hint="Separate with commas">
+                    <Input id="allergies" name="allergies" autoComplete="off" placeholder="e.g. Penicillin, peanuts…" value={form.allergies} onChange={(e) => set('allergies')(e.target.value)} />
+                  </Field>
+                  <Field id="conditions" label="Known conditions">
+                    <Input id="conditions" name="conditions" autoComplete="off" placeholder="e.g. Asthma…" value={form.knownConditions} onChange={(e) => set('knownConditions')(e.target.value)} />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field id="height" label="Height (cm)">
+                      <Input id="height" name="height" type="number" inputMode="decimal" min={30} max={250} value={form.heightCm} onChange={(e) => set('heightCm')(e.target.value)} />
+                    </Field>
+                    <Field id="weight" label="Weight (kg)">
+                      <Input id="weight" name="weight" type="number" inputMode="decimal" step="0.1" min={1} max={350} value={form.weightKg} onChange={(e) => set('weightKg')(e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field id="ec-name" label="Emergency contact">
+                      <Input id="ec-name" name="emergency-contact" autoComplete="off" placeholder="Name…" value={form.emergencyContactName} onChange={(e) => set('emergencyContactName')(e.target.value)} />
+                    </Field>
+                    <Field id="ec-phone" label="Their phone">
+                      <Input id="ec-phone" name="emergency-phone" type="tel" inputMode="tel" autoComplete="off" placeholder="98450 12345…" value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone')(e.target.value)} />
+                    </Field>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {error && (
+              <p role="alert" className="mt-5 rounded-xl bg-red-soft px-4 py-3 text-red-ink">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              {step === 1 && (
+                <Button type="button" variant="outline" size="lg" onClick={() => setStep(0)}>
+                  <ArrowLeft aria-hidden="true" /> Back
+                </Button>
+              )}
+              <Button type="submit" size="lg" disabled={loading} className="flex-1 sm:flex-none">
+                {loading && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {step === 0 ? (
+                  <>
+                    Continue <ArrowRight aria-hidden="true" />
+                  </>
+                ) : loading ? (
+                  'Saving…'
+                ) : (
+                  'Save and open my calendar'
+                )}
+              </Button>
+              <Button type="button" variant="ghost" size="lg" onClick={() => router.push('/dashboard')} className="text-ink-3">
+                Skip for now
+              </Button>
+            </div>
+          </motion.form>
+        </AnimatePresence>
       </div>
+    </AuthSplit>
+  )
+}
+
+function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <Label htmlFor={id} className="text-[14px] font-semibold">
+          {label}
+        </Label>
+        {hint && <span className="text-[13px] text-ink-3">{hint}</span>}
+      </div>
+      {children}
     </div>
   )
 }
