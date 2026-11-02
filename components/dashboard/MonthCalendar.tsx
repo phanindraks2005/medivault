@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useRef } from 'react'
 import { motion } from 'motion/react'
-import { Card } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Member } from '@/lib/family-context'
 import { parseDay } from '@/lib/dates'
@@ -45,27 +44,21 @@ export default function MonthCalendar({
   const count = Object.values(byDay).reduce((n, l) => n + l.length, 0)
 
   return (
-    <Card className="gap-0 overflow-hidden pt-0">
-      {/* The sponsor band of a chemist's wall calendar, with its binder rings. */}
-      <div
-        className="relative flex flex-wrap items-end justify-between gap-3 px-(--card-spacing) pt-7 pb-5 text-white"
-        style={{ background: 'linear-gradient(135deg, #0b6b60 0%, #0a5d54 60%, #08524a 100%)' }}
-      >
-        <span aria-hidden="true" className="absolute top-0 left-[22%] h-4 w-2.5 -translate-y-1/2 rounded-full bg-white/25" />
-        <span aria-hidden="true" className="absolute top-0 right-[22%] h-4 w-2.5 -translate-y-1/2 rounded-full bg-white/25" />
+    <section aria-labelledby="month-title" className="rounded-xl bg-canvas p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-[30px] font-extrabold leading-none tracking-[0.01em] uppercase" style={{ fontStretch: '78%' }}>
+          <h2 id="month-title" className="font-display text-[28px] font-bold uppercase leading-none tracking-[0.01em]" style={{ fontStretch: '78%' }}>
             {monthLabel}
           </h2>
-          <p className="mt-1.5 text-[14px] text-white/75">
+          <p className="mt-1.5 text-[13px] text-ink-3">
             {count === 0 ? 'Nothing dated this month yet' : `${count} ${count === 1 ? 'date' : 'dates'} this month`}
           </p>
         </div>
         {members.length > 0 && (
-          <ul className="hidden md:flex items-center gap-1.5" aria-label="Family colours">
+          <ul className="hidden items-center gap-3 md:flex" aria-label="Family colours">
             {members.map((m) => (
-              <li key={m.id} className="flex items-center gap-1.5 rounded-full bg-white/12 px-2.5 py-1 text-[13px] font-medium text-white">
-                <span className="size-2 rounded-full ring-2 ring-white/40" style={{ background: colors[m.id] }} aria-hidden="true" />
+              <li key={m.id} className="flex items-center gap-1.5 text-[13px] text-ink-2">
+                <span className="size-2 rounded-full" style={{ background: colors[m.id] }} aria-hidden="true" />
                 {m.name.split(' ')[0]}
               </li>
             ))}
@@ -73,65 +66,55 @@ export default function MonthCalendar({
         )}
       </div>
 
-      {/* Month grid on tablets and up */}
-      <div className="hidden md:block px-(--card-spacing) pt-4">
-        <div className="grid grid-cols-7 gap-1.5 pb-2">
-          {WEEKDAYS.map((w, i) => (
-            <div key={w} className={cn('px-2 text-[12px] font-semibold', i === 0 ? 'text-red' : 'text-ink-3')}>
+      {/* Month grid on tablets and up: the one white card on the screen */}
+      <div className="mt-4 hidden overflow-hidden rounded-lg bg-surface border border-line md:block">
+        <div className="grid grid-cols-7">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="px-2.5 py-2 text-[12px] font-medium text-ink-3">
               {w}
             </div>
           ))}
         </div>
         <motion.ol
-          className="grid grid-cols-7 gap-1.5"
+          className="grid grid-cols-7 gap-px bg-line pt-px"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, ease }}
+          transition={{ duration: 0.3, ease }}
           aria-label={monthLabel}
         >
           {Array.from({ length: cells }, (_, i) => {
             const n = i - leading + 1
-            if (n < 1 || n > daysInMonth) return <li key={i} aria-hidden="true" className="min-h-[84px] rounded-xl bg-muted/45" />
+            if (n < 1 || n > daysInMonth) return <li key={i} aria-hidden="true" className="min-h-[88px] bg-canvas/60" />
             const date = new Date(year, month, n)
             const isToday = n === today.getDate()
             const isPast = n < today.getDate()
-            const isSunday = date.getDay() === 0
             const list = byDay[n] || []
             const label = `${date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}${isToday ? ', today' : ''}${
               list.length ? `: ${list.map((e) => `${e.label}, ${memberName(e.memberId)}`).join('; ')}` : ''
             }`
             const cell = (
-              <li
-                aria-label={label}
-                className={cn(
-                  'group relative min-h-[84px] rounded-xl p-2 transition-colors duration-150',
-                  isToday ? 'bg-band text-white shadow-[0_8px_20px_-8px_rgb(11_107_96/0.6)]' : 'bg-surface ring-1 ring-line/70 hover:bg-muted/60',
-                  isPast && !isToday && 'opacity-60'
-                )}
-              >
+              <li aria-label={label} className="group relative min-h-[88px] bg-surface p-1.5 transition-colors duration-150 hover:bg-canvas/70">
                 <span
                   className={cn(
-                    'font-display text-[20px] font-bold leading-none num',
-                    isSunday && !isToday && 'text-red'
+                    'font-display inline-grid h-7 min-w-7 place-items-center rounded-full px-1 text-[18px] font-semibold leading-none num',
+                    isToday ? 'bg-band text-white' : isPast ? 'text-ink-3' : 'text-ink'
                   )}
                 >
                   {n}
                 </span>
-                {isToday && <span className="ml-1.5 text-[11px] font-semibold text-white/80">Today</span>}
-                <div className="mt-1.5 space-y-1">
+                <div className="mt-1 space-y-1">
                   {list.slice(0, 2).map((e, k) => (
-                    <motion.span
+                    <span
                       key={k}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease, delay: 0.15 + k * 0.05 }}
-                      className={cn('flex items-start gap-1 rounded-md px-1.5 py-[3px] text-[11.5px] font-medium leading-[1.25]', chipStyle[e.kind])}
+                      className={cn('flex items-start gap-1 rounded-[5px] px-1.5 py-[3px] text-[11.5px] font-medium leading-[1.25]', chipStyle[e.kind])}
                     >
                       <span className="mt-[4px] size-1.5 shrink-0 rounded-full" style={{ background: colors[e.memberId] }} />
-                      <span lang="en" className="line-clamp-2 [hyphens:auto] [overflow-wrap:anywhere]">{e.label}</span>
-                    </motion.span>
+                      <span lang="en" className="line-clamp-2 [hyphens:auto] [overflow-wrap:break-word]">
+                        {e.label}
+                      </span>
+                    </span>
                   ))}
-                  {list.length > 2 && <span className={cn('block px-1 text-[11px] font-medium', isToday ? 'text-white/80' : 'text-ink-3')}>+{list.length - 2} more</span>}
+                  {list.length > 2 && <span className="block px-1 text-[11px] font-medium text-ink-3">+{list.length - 2} more</span>}
                 </div>
               </li>
             )
@@ -152,12 +135,11 @@ export default function MonthCalendar({
             )
           })}
         </motion.ol>
-        <div className="h-(--card-spacing)" />
       </div>
 
       {/* Day strip on phones */}
       <DayStrip today={today} byDay={byDay} colors={colors} daysInMonth={daysInMonth} />
-    </Card>
+    </section>
   )
 }
 
@@ -187,8 +169,8 @@ function DayStrip({
   }, [])
 
   return (
-    <div ref={box} className="md:hidden overflow-x-auto px-(--card-spacing) pt-4 pb-(--card-spacing) [scrollbar-width:none]">
-      <ol className="flex gap-1.5 w-max">
+    <div ref={box} className="mt-4 overflow-x-auto [scrollbar-width:none] md:hidden">
+      <ol className="flex w-max gap-1.5 pb-1">
         {Array.from({ length: daysInMonth }, (_, i) => {
           const n = i + 1
           const date = new Date(today.getFullYear(), today.getMonth(), n)
@@ -201,16 +183,16 @@ function DayStrip({
               aria-label={`${date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}${list.length ? `, ${list.length} dated` : ''}`}
               className={cn(
                 'flex w-12 flex-col items-center gap-1 rounded-xl py-2.5',
-                isToday ? 'bg-band text-white shadow-[0_8px_20px_-8px_rgb(11_107_96/0.6)]' : 'bg-muted/60'
+                isToday ? 'bg-band text-white' : 'bg-surface border border-line'
               )}
             >
-              <span className={cn('text-[11px] font-semibold', isToday ? 'text-white/80' : date.getDay() === 0 ? 'text-red' : 'text-ink-3')}>
+              <span className={cn('text-[11px] font-medium', isToday ? 'text-white/85' : 'text-ink-3')}>
                 {date.toLocaleDateString('en-IN', { weekday: 'short' })}
               </span>
               <span className="font-display text-[20px] font-bold leading-none num">{n}</span>
               <span className="flex h-2 gap-0.5">
                 {list.slice(0, 3).map((e, k) => (
-                  <span key={k} className="size-1.5 rounded-full ring-1 ring-white/60" style={{ background: colors[e.memberId] }} />
+                  <span key={k} className="size-1.5 rounded-full" style={{ background: isToday ? '#fff' : colors[e.memberId] }} />
                 ))}
               </span>
             </li>

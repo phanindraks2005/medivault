@@ -5,9 +5,9 @@ export default function DateLeaf({ day, month, tone = 'plain', size = 'md' }: { 
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-col items-center overflow-hidden rounded-[10px] bg-surface ring-1',
+        'flex shrink-0 flex-col items-center overflow-hidden rounded-[10px] border bg-surface',
         size === 'lg' ? 'w-[60px]' : 'w-[50px]',
-        tone === 'red' ? 'ring-red/30' : tone === 'due' ? 'ring-due/50' : 'ring-line'
+        tone === 'red' ? 'border-red/30' : tone === 'due' ? 'border-due/50' : 'border-line'
       )}
     >
       <span

@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Languages, Loader2, Pill, Stethoscope } from 'lucide-react'
 import { toast } from 'sonner'
 import { authHeaders } from '@/lib/supabase'
-import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -87,16 +86,16 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
   const busyLabel = { medicine: 'Looking up…', symptoms: 'Checking…', note: 'Explaining…' }[active]
 
   return (
-    <Card className="gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-(--card-spacing)">
+    <section aria-labelledby="quick-answers" className="flex flex-col gap-4 rounded-xl bg-canvas p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-heading text-[19px] font-bold leading-tight">Quick answers</h2>
-          <p className="text-[13.5px] text-ink-3">General information, not a diagnosis</p>
+          <h2 id="quick-answers" className="text-[15px] font-semibold">Quick answers</h2>
+          <p className="mt-0.5 text-[13px] text-ink-3">General information, not a diagnosis</p>
         </div>
-        <Tabs value={active} onValueChange={(v) => !loading && (setActive(v as ToolId), setError(''))}>
-          <TabsList className="h-10 bg-muted p-1">
+        <Tabs className="max-w-full overflow-x-auto [scrollbar-width:none]" value={active} onValueChange={(v) => !loading && (setActive(v as ToolId), setError(''))}>
+          <TabsList className="h-10 rounded-full bg-[#e6ebf1] p-1">
             {TOOLS.map((t) => (
-              <TabsTrigger key={t.id} value={t.id} className="h-8 px-3 text-[14px] data-active:bg-surface data-active:shadow-sm">
+              <TabsTrigger key={t.id} value={t.id} className="h-8 rounded-full px-3 text-[14px] data-active:bg-surface data-active:shadow-[var(--shadow-card)]">
                 <t.icon aria-hidden="true" /> {t.label}
               </TabsTrigger>
             ))}
@@ -104,7 +103,7 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
         </Tabs>
       </div>
 
-      <div className="px-(--card-spacing)">
+      <div>
         <AnimatePresence mode="wait" initial={false}>
           <motion.form
             key={active}
@@ -183,11 +182,11 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
 
         <div aria-live="polite">
           {loading && <p className="mt-3 text-[13.5px] text-ink-3">This can take up to half a minute when the service is busy.</p>}
-          {error && <p role="alert" className="mt-3 rounded-xl bg-muted px-4 py-3 text-ink-2">{error}</p>}
+          {error && <p role="alert" className="mt-3 rounded-lg bg-surface px-4 py-3 text-ink-2 border border-line">{error}</p>}
 
           {active === 'medicine' && medicine && !loading && (
             <Result>
-              <p className="font-heading text-[18px] font-bold">{medicine.name}</p>
+              <p className="text-[18px] font-semibold">{medicine.name}</p>
               {medicine.common_brands_india?.length ? <p className="text-[13.5px] text-ink-3">Sold as {medicine.common_brands_india.join(', ')}</p> : null}
               <dl className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-[130px_1fr]">
                 <dt className="text-ink-3">Used for</dt>
@@ -238,13 +237,13 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                   ))}
                 </dl>
               ) : null}
-              {note.should_be_concerned && <p className="mt-4 rounded-xl bg-due-soft px-4 py-3 text-due-ink">{note.should_be_concerned}</p>}
+              {note.should_be_concerned && <p className="mt-4 rounded-lg bg-due-soft px-4 py-3 text-due-ink">{note.should_be_concerned}</p>}
               {note.disclaimer && <p className="mt-3 text-[13.5px] text-ink-3">{note.disclaimer}</p>}
             </Result>
           )}
         </div>
       </div>
-    </Card>
+    </section>
   )
 }
 
@@ -254,7 +253,7 @@ function Result({ children }: { children: React.ReactNode }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease }}
-      className="mt-4 rounded-xl bg-canvas p-4 md:p-5"
+      className="mt-4 rounded-lg bg-surface p-4 border border-line md:p-5"
     >
       {children}
     </motion.div>
