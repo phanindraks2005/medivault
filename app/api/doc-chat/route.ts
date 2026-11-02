@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
+import type { Medicine } from '@/components/dashboard/types'
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,8 +32,8 @@ export async function POST(req: NextRequest) {
     const contextBlock = (members || []).map((m) => {
       const memberRecords = (records || []).filter((r) => r.family_member_id === m.id)
       const recordSummaries = memberRecords.map((r) => {
-        const meds = r.extracted_data?.medicines?.map((med: any) => `${med.name} (${med.dosage || 'dosage unknown'}, ${med.frequency || 'frequency unknown'})`).join('; ') || 'none extracted'
-        return `  - [${r.record_type}] ${new Date(r.created_at).toLocaleDateString()} · Doctor: ${r.doctor_name || 'unknown'} · Hospital: ${r.hospital_name || 'unknown'} · Medicines: ${meds}${r.extracted_data?.notes ? ` · Notes: ${r.extracted_data.notes}` : ''}`
+        const meds = r.extracted_data?.medicines?.map((med: Medicine) => `${med.name} (${med.dosage || 'dosage unknown'}, ${med.frequency || 'frequency unknown'})`).join('; ') || 'none extracted'
+        return `  - [${r.record_type}] ${r.record_date || `uploaded ${new Date(r.created_at).toLocaleDateString('en-IN')}`} · Doctor: ${r.doctor_name || 'unknown'} · Hospital: ${r.hospital_name || 'unknown'} · Medicines: ${meds}${r.extracted_data?.notes ? ` · Notes: ${r.extracted_data.notes}` : ''}`
       }).join('\n')
 
       return `${m.name} (${m.relation}, ${m.gender || 'gender unknown'}, blood group ${m.blood_group || 'unknown'}${m.dob ? `, DOB ${m.dob}` : ''})${m.allergies ? `\n  Allergies: ${m.allergies}` : ''}${m.known_conditions ? `\n  Known conditions: ${m.known_conditions}` : ''}\n  Records:\n${recordSummaries || '  (none)'}`

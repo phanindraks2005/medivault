@@ -1,200 +1,292 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { motion } from 'motion/react'
+import { ArrowUp, Loader2, RotateCw, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
+import { useFamily } from '@/lib/family-context'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ease } from '@/lib/motion'
+import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
-const suggestedPrompts = [
-  "What medicines is my family currently on?",
-  "Quick remedy for a headache?",
-  "Any allergies I should know about?",
-  "Summarize our latest prescription",
-]
+function DocMark({ size = 32 }: { size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid shrink-0 place-items-center rounded-full bg-band font-semibold text-white"
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
+    >
+      D
+    </span>
+  )
+}
 
 export default function DocPage() {
+  const { members } = useFamily()
   const [userId, setUserId] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
-  const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [history, setHistory] = useState<'loading' | 'ready' | 'error'>('loading')
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const scroller = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setUserId(user.id)
-
-      const { data } = await supabase
-        .from('chat_history')
-        .select('role, content')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-
-      if (data && data.length > 0) {
-        setMessages(data.map((d) => ({ role: d.role as 'user' | 'assistant', content: d.content })))
-      }
-      setHistoryLoaded(true)
-    }
-    load()
+  const loadHistory = useCallback(async () => {
+    setHistory('loading')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setUserId(user.id)
+    const { data, error } = await supabase.from('chat_history').select('role, content').order('created_at', { ascending: true })
+    if (error) return setHistory('error')
+    setMessages((data || []).map((d) => ({ role: d.role as Message['role'], content: d.content })))
+    setHistory('ready')
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadHistory()
+  }, [loadHistory])
 
-  const saveMessage = async (role: 'user' | 'assistant', content: string) => {
-    await supabase.from('chat_history').insert({ user_id: userId, role, content })
-  }
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, sending])
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || !userId) return
-    const newMessages: Message[] = [...messages, { role: 'user', content: text }]
-    setMessages(newMessages)
-    setInput('')
-    setLoading(true)
+  // The composer grows with its text, up to about six lines.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 168)}px`
+  }, [input])
+
+  const ask = async (list: Message[]) => {
+    setSending(true)
     setError('')
-    saveMessage('user', text)
-
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/doc-chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ messages: newMessages }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ messages: list }),
       })
-      const data = await res.json()
-      if (data.error) {
-        setError(data.error)
-      } else {
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
-        saveMessage('assistant', data.reply)
-      }
-    } catch {
-      setError('Something went wrong, try again')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) throw new Error(data.error || 'Doc is busy right now. Try again in a minute.')
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
+      await supabase.from('chat_history').insert({ user_id: userId, role: 'assistant', content: data.reply })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
     }
-    setLoading(false)
+    setSending(false)
   }
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault()
-    sendMessage(input)
+  const send = async (text: string) => {
+    const q = text.trim()
+    if (!q || !userId || sending) return
+    const list: Message[] = [...messages, { role: 'user', content: q }]
+    setMessages(list)
+    setInput('')
+    supabase.from('chat_history').insert({ user_id: userId, role: 'user', content: q }).then()
+    await ask(list)
   }
 
-  const handleClearChat = async () => {
-    const confirmed = window.confirm('Clear this conversation? This can\'t be undone.')
-    if (!confirmed) return
-    await supabase.from('chat_history').delete().eq('user_id', userId)
+  const clear = async () => {
+    const { error } = await supabase.from('chat_history').delete().eq('user_id', userId)
+    setConfirmClear(false)
+    if (error) return toast.error("Couldn't clear the conversation. Try again.")
     setMessages([])
+    setError('')
   }
+
+  // Suggestions use the family's own names, so the first question is a real one.
+  const others = members.filter((m) => m.relation?.toLowerCase() !== 'self')
+  const firstOf = (i: number) => others[i]?.name.split(' ')[0]
+  const suggestions = [
+    firstOf(0) ? `What is ${firstOf(0)} taking right now?` : 'What medicines am I taking right now?',
+    'Does anyone in the family have allergies?',
+    firstOf(1) ? `Summarise ${firstOf(1)}'s latest prescription` : 'Summarise our latest prescription',
+    'Which vaccinations are due soon?',
+  ]
+
+  const lastIsUser = messages[messages.length - 1]?.role === 'user'
 
   return (
-    <div className="h-[calc(100dvh-3.5rem-5rem)] lg:h-dvh flex flex-col bg-background">
-      <div className="flex-shrink-0">
-      </div>
-
-      <div className="flex-1 min-h-0 flex flex-col max-w-3xl mx-auto w-full">
-        {!historyLoaded ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-text-secondary">Loading…</p>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center px-5 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-sage flex items-center justify-center mb-5 shadow-[0_0_40px_-8px_var(--color-sage)]">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0F1115" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-</svg>
+    <div className="-mb-24 flex h-[calc(100dvh-48px-56px)] flex-col lg:mb-0 lg:h-[calc(100dvh-18px)]">
+      <header className="border-b border-line px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[760px] items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <DocMark size={40} />
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-semibold leading-tight">Ask Doc</h1>
+              <p className="truncate text-[14px] text-ink-3">Answers from your family&apos;s records. Not a diagnosis.</p>
             </div>
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Hey, I'm Doc</h1>
-            <p className="text-sm text-text-secondary max-w-sm mb-8">
-              I know your family's records, prescriptions, and medicines. Ask me anything — from quick remedies to what your dad's currently taking.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
-              {suggestedPrompts.map((prompt, i) => (
-                <button
+          </div>
+          {messages.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)}>
+              <Trash2 aria-hidden="true" /> <span className="hidden sm:inline">Clear conversation</span>
+              <span className="sr-only sm:hidden">Clear conversation</span>
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
+        <div className="mx-auto flex min-h-full max-w-[760px] flex-col py-6">
+          {history === 'loading' && (
+            <div className="space-y-4" aria-busy="true" aria-label="Loading the conversation">
+              <Skeleton className="ml-auto h-10 w-2/5 rounded-2xl" />
+              <Skeleton className="h-24 w-3/4 rounded-2xl" />
+            </div>
+          )}
+
+          {history === 'error' && (
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl bg-canvas px-5 py-4">
+              <p className="flex-1">Couldn&apos;t load your conversation.</p>
+              <Button size="sm" variant="outline" onClick={loadHistory}>
+                Try again
+              </Button>
+            </div>
+          )}
+
+          {history === 'ready' && messages.length === 0 && (
+            <div className="my-auto py-8">
+              <p className="font-heading text-[28px] leading-tight tracking-[-0.03em] sm:text-[32px]">What would you like to know?</p>
+              <p className="mt-2 max-w-[52ch] text-[16px] text-ink-2">
+                Doc reads your family&apos;s prescriptions, allergies and vaccinations before it answers. For anything serious it will tell you to see a doctor.
+              </p>
+              <ul className="mt-8 grid gap-2 sm:grid-cols-2">
+                {suggestions.map((s) => (
+                  <li key={s}>
+                    <button
+                      onClick={() => send(s)}
+                      className="h-full w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-left text-[15px] transition-[box-shadow,border-color] duration-150 hover:border-line-strong hover:shadow-[var(--shadow-lift)]"
+                    >
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <ol role="log" aria-live="polite" aria-label="Conversation with Doc" className="space-y-5">
+              {messages.map((m, i) => (
+                <motion.li
                   key={i}
-                  onClick={() => sendMessage(prompt)}
-                  className="text-left text-sm px-4 py-3 rounded-2xl border border-border bg-card text-foreground hover:border-sage transition"
+                  initial={i >= messages.length - 2 ? { opacity: 0, y: 8 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease }}
+                  className={cn('flex gap-3', m.role === 'user' && 'justify-end')}
                 >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 flex flex-col gap-4">
-            <div className="flex justify-end">
-              <button onClick={handleClearChat} className="text-xs text-text-secondary hover:text-red-300 transition">
-                <i className="ti ti-trash" style={{ marginRight: 4 }}></i>Clear conversation
-              </button>
-            </div>
-            {messages.map((m, i) => (
-              <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                {m.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-lg bg-sage flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F1115" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-</svg>
+                  {m.role === 'assistant' && <DocMark />}
+                  <div
+                    className={cn(
+                      'max-w-[85%] text-[15px] leading-relaxed sm:max-w-[78%]',
+                      m.role === 'user'
+                        ? 'whitespace-pre-wrap rounded-2xl rounded-br-md bg-band px-4 py-2.5 text-white'
+                        : 'markdown-body rounded-2xl rounded-tl-md bg-canvas px-4 py-3'
+                    )}
+                  >
+                    <span className="sr-only">{m.role === 'user' ? 'You: ' : 'Doc: '}</span>
+                    {m.role === 'user' ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
                   </div>
-                )}
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-sage text-[#0F1115] rounded-tr-sm whitespace-pre-wrap'
-                      : 'bg-card border border-border text-foreground rounded-tl-sm markdown-body'
-                  }`}
-                >
-                  {m.role === 'user' ? (
-                    m.content
-                  ) : (
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
-                  )}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-lg bg-sage flex items-center justify-center flex-shrink-0">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F1115" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-</svg>
-                </div>
-                <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-text-secondary animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-text-secondary animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-text-secondary animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            )}
-            {error && <div className="text-sm text-red-300 px-2">{error}</div>}
-            <div ref={bottomRef} />
-          </div>
-        )}
+                </motion.li>
+              ))}
+              {sending && (
+                <li className="flex gap-3">
+                  <DocMark />
+                  <span className="flex h-11 items-center gap-1 rounded-2xl rounded-tl-md bg-canvas px-4" aria-label="Doc is writing">
+                    {[0, 1, 2].map((d) => (
+                      <motion.span
+                        key={d}
+                        className="size-1.5 rounded-full bg-ink-3"
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 0.9, repeat: Infinity, delay: d * 0.15 }}
+                      />
+                    ))}
+                  </span>
+                </li>
+              )}
+            </ol>
+          )}
 
-        <form onSubmit={handleSend} className="flex-shrink-0 px-5 py-4">
-          <div className="flex gap-2 bg-card border border-border rounded-2xl p-2 shadow-lg">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Doc anything…"
-              className="flex-1 px-3 py-2 bg-transparent text-sm text-foreground focus:outline-none placeholder:text-text-muted"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="w-10 h-10 rounded-xl bg-sage flex items-center justify-center hover:opacity-90 transition disabled:opacity-40 flex-shrink-0"
-            >
-              <i className="ti ti-arrow-up" style={{ fontSize: 18, color: '#0F1115' }}></i>
-            </button>
-          </div>
-        </form>
+          {error && (
+            <div role="alert" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-canvas px-4 py-3">
+              <p className="flex-1 text-[15px]">{error}</p>
+              {lastIsUser && (
+                <Button size="sm" variant="outline" onClick={() => ask(messages)} disabled={sending}>
+                  <RotateCw aria-hidden="true" /> Try again
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          send(input)
+        }}
+        className="px-4 pb-4 pt-2 sm:px-6 lg:pb-6"
+      >
+        <div className="mx-auto flex max-w-[760px] items-end gap-2 rounded-2xl border border-line-strong bg-surface p-2 transition-[border-color,box-shadow] focus-within:border-band focus-within:ring-3 focus-within:ring-band/20">
+          <label htmlFor="doc-input" className="sr-only">
+            Ask Doc a question
+          </label>
+          <textarea
+            id="doc-input"
+            ref={box}
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                send(input)
+              }
+            }}
+            placeholder="Ask about a medicine, a dose or someone's records…"
+            className="max-h-[168px] min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-6 outline-none placeholder:text-ink-3"
+          />
+          <Button type="submit" size="icon" aria-label="Send" disabled={sending || !input.trim() || !userId}>
+            {sending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
+          </Button>
+        </div>
+        <p className="mx-auto mt-2 max-w-[760px] px-1 text-[13px] text-ink-3">Enter to send, Shift + Enter for a new line.</p>
+      </form>
+
+      <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>Doc forgets these messages. Your family&apos;s records stay as they are.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={clear}>
+              Clear conversation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
