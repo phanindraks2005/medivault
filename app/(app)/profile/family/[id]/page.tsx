@@ -237,6 +237,9 @@ function Member({ id }: { id: string }) {
         actions={
           member && (
             <>
+              <Button variant="outline" nativeButton={false} render={<Link href={`/profile/family/${id}/emergency`} />}>
+                <CreditCard aria-hidden="true" /> Emergency card
+              </Button>
               <Button variant="outline" onClick={() => setEditing(true)}>
                 <Pencil aria-hidden="true" /> Edit
               </Button>
