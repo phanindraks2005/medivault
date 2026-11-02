@@ -1,307 +1,413 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { ExternalLink, FileText, Loader2, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase, authHeaders } from '@/lib/supabase'
+import { useFamily } from '@/lib/family-context'
+import { dayLeaf, formatDay } from '@/lib/dates'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import DateLeaf from '@/components/app/DateLeaf'
+import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
+import type { Medicine } from '@/components/dashboard/types'
+import { cn } from '@/lib/utils'
 
-type Medicine = { name: string; dosage?: string; frequency?: string }
+type RecordRow = {
+  id: string
+  record_type: string | null
+  record_date: string | null
+  created_at: string
+  doctor_name: string | null
+  hospital_name: string | null
+  file_url: string | null
+  extracted_data: { error?: string; medicines?: Medicine[]; notes?: string | null; record_date?: string | null } | null
+}
 
 // Extraction normally finishes within a minute. Past this, a record still
 // without details almost certainly had its request lost, so offer a retry.
 const STUCK_AFTER_MS = 2 * 60 * 1000
 
-export default function RecordDetailPage({ params }: { params: Promise<{ id: string; recordId: string }> }) {
+const TYPES = [
+  { value: 'prescription', label: 'Prescription' },
+  { value: 'lab_report', label: 'Lab report' },
+  { value: 'other', label: 'Other' },
+]
+const typeLabel = (t: string | null) => TYPES.find((x) => x.value === t)?.label || 'Prescription'
+
+export default function RecordPage({ params }: { params: Promise<{ id: string; recordId: string }> }) {
   const { id, recordId } = use(params)
   const router = useRouter()
+  const { members } = useFamily()
+  const member = members.find((m) => m.id === id)
+  const first = member?.name.split(' ')[0] || 'Records'
 
-  const [record, setRecord] = useState<any>(null)
-  const [member, setMember] = useState<any>(null)
-  const [error, setError] = useState('')
-  const [loadedAt, setLoadedAt] = useState(0)
+  const [record, setRecord] = useState<RecordRow | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading')
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [fileFailed, setFileFailed] = useState(false)
+  const [now, setNow] = useState(0)
   const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  const [editMode, setEditMode] = useState(false)
-  const [editRecordType, setEditRecordType] = useState('prescription')
-  const [editDoctorName, setEditDoctorName] = useState('')
-  const [editHospitalName, setEditHospitalName] = useState('')
-  const [editNotes, setEditNotes] = useState('')
-  const [editMedicines, setEditMedicines] = useState<Medicine[]>([])
-
-  const load = async () => {
-    const { data: recordData, error: recordError } = await supabase
+  const load = useCallback(async () => {
+    const { data, error } = await supabase
       .from('medical_records')
-      .select('*')
+      .select('id, record_type, record_date, created_at, doctor_name, hospital_name, file_url, extracted_data')
       .eq('id', recordId)
-      .single()
-    if (recordError) setError(recordError.message)
-    else setRecord(recordData)
-    setLoadedAt(Date.now())
+      .maybeSingle()
+    setNow(Date.now())
+    if (error) return setStatus('error')
+    if (!data) return setStatus('missing')
+    setRecord(data)
+    setStatus('ready')
+  }, [recordId])
 
-    const { data: memberData } = await supabase
-      .from('family_members')
-      .select('name')
-      .eq('id', id)
-      .single()
-    setMember(memberData)
-  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
 
-  const handleRetryExtraction = async () => {
+  // The bucket is private: a short-lived signed link shows the original file.
+  useEffect(() => {
+    if (!record?.file_url) return
+    supabase.storage
+      .from('medical-records')
+      .createSignedUrl(record.file_url, 60 * 30)
+      .then(({ data }) => setFileUrl(data?.signedUrl || null))
+  }, [record?.file_url])
+
+  const reading = status === 'ready' && !record?.extracted_data
+  useEffect(() => {
+    if (!reading) return
+    const t = setInterval(load, 4000)
+    return () => clearInterval(t)
+  }, [reading, load])
+
+  const retry = async () => {
     setRetrying(true)
-    setError('')
+    setRetryError('')
     try {
-      const res = await fetch('/api/extract-record', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ recordId }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
+      const res = await fetch('/api/extract-record', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ recordId }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) setRetryError(data.error || 'The reading service is busy. Try again in a minute.')
     } catch {
-      setError('Something went wrong, try again')
+      setRetryError('Something went wrong. Check your connection and try again.')
     }
     await load()
     setRetrying(false)
   }
 
-  useEffect(() => {
-    load()
-  }, [id, recordId])
-
-  const startEdit = () => {
-    setEditRecordType(record.record_type || 'prescription')
-    setEditDoctorName(record.doctor_name || '')
-    setEditHospitalName(record.hospital_name || '')
-    setEditNotes(record.extracted_data?.notes || '')
-    setEditMedicines(record.extracted_data?.medicines?.length ? record.extracted_data.medicines : [{ name: '', dosage: '', frequency: '' }])
-    setEditMode(true)
-  }
-
-  const updateMedicine = (index: number, field: keyof Medicine, value: string) => {
-    setEditMedicines((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)))
-  }
-
-  const addMedicineRow = () => {
-    setEditMedicines((prev) => [...prev, { name: '', dosage: '', frequency: '' }])
-  }
-
-  const removeMedicineRow = (index: number) => {
-    setEditMedicines((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanedMedicines = editMedicines.filter((m) => m.name.trim() !== '')
-    const newExtractedData = {
-      ...(record.extracted_data || {}),
-      medicines: cleanedMedicines,
-      notes: editNotes || null,
-    }
-
-    const { error } = await supabase
-      .from('medical_records')
-      .update({
-        record_type: editRecordType,
-        doctor_name: editDoctorName || null,
-        hospital_name: editHospitalName || null,
-        extracted_data: newExtractedData,
-      })
-      .eq('id', recordId)
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setEditMode(false)
-      load()
-    }
-  }
-
-  const handleDelete = async () => {
-    const confirmed = window.confirm("Delete this record? This can't be undone.")
-    if (!confirmed) return
-
+  const remove = async () => {
+    setDeleting(true)
+    if (record?.file_url) await supabase.storage.from('medical-records').remove([record.file_url])
     const { error } = await supabase.from('medical_records').delete().eq('id', recordId)
-    if (error) {
-      setError(error.message)
-    } else {
-      router.push(`/profile/family/${id}`)
-    }
+    setDeleting(false)
+    if (error) return toast.error("Couldn't delete the record. Try again.")
+    toast.success('Record deleted')
+    router.push(`/profile/family/${id}`)
   }
 
-  if (!record) {
+  if (status === 'missing') {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-5 py-6">
-          <p className="text-sm text-text-secondary">Loading…</p>
-        </div>
-      </div>
+      <Page>
+        <PageHeader back={{ href: `/profile/family/${id}`, label: first }} title="Record not found" sub="It may have been deleted." />
+      </Page>
     )
   }
 
-  const extracted = record.extracted_data
-  const isStuck = !extracted && loadedAt - new Date(record.created_at).getTime() > STUCK_AFTER_MS
-
-  const retryButton = (
-    <button
-      onClick={handleRetryExtraction}
-      disabled={retrying}
-      className="shrink-0 text-sm px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-background transition disabled:opacity-50"
-    >
-      {retrying ? 'Reading…' : 'Try again'}
-    </button>
-  )
+  const x = record?.extracted_data
+  const stuck = reading && record && now - new Date(record.created_at).getTime() > STUCK_AFTER_MS
+  const date = record ? record.record_date || record.created_at : null
+  const isPdf = record?.file_url?.toLowerCase().endsWith('.pdf')
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-5 py-6">
-        <Link href={`/profile/family/${id}`} className="text-sm text-text-secondary hover:text-foreground transition mb-8 inline-block">
-          <i className="ti ti-arrow-left" style={{ marginRight: 4 }}></i>Back to {member?.name || 'records'}
-        </Link>
+    <Page>
+      <PageHeader
+        back={{ href: `/profile/family/${id}`, label: first }}
+        lead={date ? <DateLeaf {...dayLeaf(date)} size="lg" /> : <Skeleton className="h-[62px] w-[60px] rounded-[10px]" />}
+        title={record ? typeLabel(record.record_type) : <Skeleton className="h-8 w-40" />}
+        sub={
+          record ? (
+            <>
+              {[record.doctor_name, record.hospital_name].filter(Boolean).join(', ') || 'Doctor not known'}
+              {member && <> · for {member.name.split(' ')[0]}</>}
+              <span className="block text-[14px] text-ink-3 num">
+                {record.record_date ? `Written ${formatDay(record.record_date)}` : 'Date not read'} · uploaded {formatDay(record.created_at)}
+              </span>
+            </>
+          ) : (
+            'Loading…'
+          )
+        }
+        actions={
+          record &&
+          !editing && (
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <Pencil aria-hidden="true" /> Edit
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmDelete(true)} className="text-red-ink hover:bg-red-soft hover:text-red-ink">
+                <Trash2 aria-hidden="true" /> Delete
+              </Button>
+            </>
+          )
+        }
+      />
 
-        {error && (
-          <div className="mb-6 px-4 py-3 rounded-2xl bg-red-50 text-red-800 text-sm">{error}</div>
-        )}
+      {status === 'error' && <ErrorLine onRetry={load}>Couldn&apos;t load this record. Check your connection and try again.</ErrorLine>}
 
-        {!editMode ? (
-          <>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-xl font-medium text-foreground capitalize">{record.record_type?.replace('_', ' ')}</h1>
-                <p className="text-sm text-text-secondary mt-1">
-                  {new Date(record.created_at).toLocaleDateString()} · {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      {record && editing ? (
+        <EditRecord
+          record={record}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            toast.success('Saved')
+            load()
+          }}
+        />
+      ) : (
+        <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+          <div className="space-y-4 lg:col-span-7">
+            {(reading || x?.error) && (
+              <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl bg-canvas px-5 py-4">
+                {reading && !stuck && <Loader2 className="size-5 animate-spin text-band" aria-hidden="true" />}
+                <p className="min-w-0 flex-1 text-[15px]">
+                  {reading && !stuck && 'Reading the file. This usually takes under a minute…'}
+                  {stuck && "Details from this file haven't come through yet."}
+                  {x?.error === 'not a medical document' && "This doesn't look like a prescription or report, so nothing was read from it."}
+                  {x?.error && x.error !== 'not a medical document' && "Couldn't read the details from this file."}
                 </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={startEdit} className="text-sm px-3 py-1.5 rounded-full border border-border hover:bg-card transition">
-                  <i className="ti ti-edit" style={{ marginRight: 4 }}></i>Edit
-                </button>
-                <button onClick={handleDelete} className="text-sm px-3 py-1.5 rounded-full border border-red-300 text-red-800 hover:bg-red-50 transition">
-                  <i className="ti ti-trash" style={{ marginRight: 4 }}></i>Delete
-                </button>
-              </div>
-            </div>
-
-            {!extracted && (
-              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary flex items-center justify-between gap-3">
-                <span>
-                  {isStuck
-                    ? "Details from this file haven't come through yet."
-                    : 'Still processing this record — check back in a moment.'}
-                </span>
-                {isStuck && retryButton}
-              </div>
-            )}
-
-            {extracted?.error && (
-              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary flex items-center justify-between gap-3">
-                <span>
-                  {extracted.error === 'not a medical document'
-                    ? "This doesn't look like a prescription or report, so no details were pulled out."
-                    : "Couldn't read the details from this file."}
-                </span>
-                {retryButton}
-              </div>
-            )}
-
-            {extracted && !extracted.error && (
-              <div className="flex flex-col gap-4">
-                {(record.doctor_name || record.hospital_name) && (
-                  <div className="bg-card rounded-2xl border border-border p-4">
-                    {record.doctor_name && (
-                      <>
-                        <p className="text-xs text-text-secondary">Doctor</p>
-                        <p className="text-sm font-medium text-foreground mt-1">{record.doctor_name}</p>
-                      </>
-                    )}
-                    {record.hospital_name && (
-                      <>
-                        <p className="text-xs text-text-secondary mt-3">Hospital / clinic</p>
-                        <p className="text-sm font-medium text-foreground mt-1">{record.hospital_name}</p>
-                      </>
-                    )}
-                  </div>
+                {(stuck || x?.error) && (
+                  <Button size="sm" variant="outline" onClick={retry} disabled={retrying}>
+                    {retrying ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RotateCw aria-hidden="true" />}
+                    {retrying ? 'Reading…' : 'Try again'}
+                  </Button>
                 )}
+                {retryError && (
+                  <p role="alert" className="w-full text-[14px] text-red-ink">
+                    {retryError}
+                  </p>
+                )}
+              </div>
+            )}
 
-                {extracted.medicines?.length > 0 && (
-                  <div>
-                    <h2 className="text-sm font-medium text-foreground mb-2">Medicines</h2>
-                    <div className="flex flex-col gap-2">
-                      {extracted.medicines.map((med: Medicine, i: number) => (
-                        <div key={i} className="bg-sage-light rounded-2xl p-4">
-                          <p className="text-sm font-medium text-foreground">{med.name}</p>
-                          <p className="text-xs text-text-secondary mt-1">
-                            {med.dosage || 'Dosage not specified'} {med.frequency && `· ${med.frequency}`}
-                          </p>
-                        </div>
+            <Panel labelledBy="medicines">
+              <PanelHead id="medicines" title="Medicines" count={x && !x.error ? x.medicines?.length || 0 : undefined} hint="As read from the file. Edit anything that's wrong." />
+              {status === 'loading' && <Skeleton className="mt-3 h-40 rounded-lg" />}
+              {status === 'ready' && x && !x.error && !x.medicines?.length && <EmptyLine>No medicines were listed on this record.</EmptyLine>}
+              {!!x?.medicines?.length && !x.error && (
+                <div className="mt-3 overflow-x-auto rounded-lg border border-line bg-surface">
+                  <table className="w-full text-left text-[15px]">
+                    <thead>
+                      <tr className="border-b border-line text-[13px] text-ink-3">
+                        <th scope="col" className="px-4 py-2.5 font-medium">Medicine</th>
+                        <th scope="col" className="px-4 py-2.5 font-medium">Dose</th>
+                        <th scope="col" className="px-4 py-2.5 font-medium">When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {x.medicines.map((m, i) => (
+                        <tr key={i} className={cn(i > 0 && 'border-t border-line')}>
+                          <td className="px-4 py-3 font-medium">{m.name}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-ink-2 num">{m.dosage || <span className="text-ink-3">—</span>}</td>
+                          <td className="px-4 py-3 text-ink-2">{m.frequency || <span className="text-ink-3">—</span>}</td>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
-                )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
 
-                {extracted.notes && (
-                  <div className="bg-card rounded-2xl border border-border p-4">
-                    <p className="text-xs text-text-secondary">Notes</p>
-                    <p className="text-sm text-foreground mt-1">{extracted.notes}</p>
-                  </div>
-                )}
-              </div>
+            {x?.notes && (
+              <Panel labelledBy="notes">
+                <PanelHead id="notes" title="Doctor's notes" />
+                <p className="mt-3 rounded-lg border border-line bg-surface p-4 text-[15px] leading-relaxed">{x.notes}</p>
+              </Panel>
             )}
-          </>
-        ) : (
-          <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
-            <div className="bg-card rounded-2xl border border-border p-4 flex flex-col gap-3">
-              <select value={editRecordType} onChange={(e) => setEditRecordType(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage">
-                <option value="prescription">Prescription</option>
-                <option value="lab_report">Lab report</option>
-                <option value="other">Other</option>
-              </select>
-              <input placeholder="Doctor name" value={editDoctorName} onChange={(e) => setEditDoctorName(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-              <input placeholder="Hospital / clinic name" value={editHospitalName} onChange={(e) => setEditHospitalName(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-sage" />
-            </div>
+          </div>
 
-            <div>
-              <h2 className="text-sm font-medium text-foreground mb-2">Medicines</h2>
-              <div className="flex flex-col gap-2">
-                {editMedicines.map((med, i) => (
-                  <div key={i} className="bg-sage-light rounded-2xl p-3 flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <input placeholder="Medicine name" value={med.name} onChange={(e) => updateMedicine(i, 'name', e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-sage" />
-                      <button type="button" onClick={() => removeMedicineRow(i)} className="px-3 rounded-xl border border-red-300 text-red-800 text-sm hover:bg-red-50 transition">
-                        <i className="ti ti-x"></i>
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input placeholder="Dosage" value={med.dosage || ''} onChange={(e) => updateMedicine(i, 'dosage', e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-sage" />
-                      <input placeholder="Frequency / timing" value={med.frequency || ''} onChange={(e) => updateMedicine(i, 'frequency', e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-sage" />
-                    </div>
-                  </div>
-                ))}
-                <button type="button" onClick={addMedicineRow} className="text-sm px-3 py-1.5 rounded-full border border-border hover:bg-card transition self-start">
-                  + Add medicine
+          <Panel labelledBy="file" className="lg:col-span-5">
+            <PanelHead
+              id="file"
+              title="Original file"
+              action={
+                fileUrl && (
+                  <Button variant="ghost" size="sm" nativeButton={false} render={<a href={fileUrl} target="_blank" rel="noreferrer" />}>
+                    Open <ExternalLink aria-hidden="true" />
+                  </Button>
+                )
+              }
+            />
+            <div className="mt-3 overflow-hidden rounded-lg border border-line bg-surface">
+              {!record?.file_url ? (
+                <p className="p-4 text-[14px] text-ink-3">No file attached.</p>
+              ) : !fileUrl ? (
+                <Skeleton className="aspect-[3/4] w-full rounded-none" />
+              ) : isPdf || fileFailed ? (
+                <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 text-[15px] font-medium text-band hover:underline">
+                  <FileText className="size-5" aria-hidden="true" /> {fileFailed ? "Couldn't show a preview. Open the file" : 'Open the PDF'}
+                </a>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- signed URL from a private bucket, not optimisable
+                <img src={fileUrl} alt={`The uploaded ${typeLabel(record.record_type).toLowerCase()}`} className="max-h-[640px] w-full object-contain" onError={() => setFileFailed(true)} />
+              )}
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this record?</AlertDialogTitle>
+            <AlertDialogDescription>The uploaded file and everything read from it are deleted. This can&apos;t be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep it</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={remove} disabled={deleting}>
+              {deleting && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {deleting ? 'Deleting…' : 'Delete record'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Page>
+  )
+}
+
+function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel: () => void; onSaved: () => void }) {
+  const [type, setType] = useState(record.record_type || 'prescription')
+  const [doctor, setDoctor] = useState(record.doctor_name || '')
+  const [clinic, setClinic] = useState(record.hospital_name || '')
+  const [date, setDate] = useState(record.record_date?.slice(0, 10) || '')
+  const [notes, setNotes] = useState(record.extracted_data?.notes || '')
+  const [meds, setMeds] = useState<Medicine[]>(record.extracted_data?.medicines?.length ? record.extracted_data.medicines : [{ name: '', dosage: '', frequency: '' }])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const setMed = (i: number, k: keyof Medicine, v: string) => setMeds((list) => list.map((m, j) => (j === i ? { ...m, [k]: v } : m)))
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    const base = record.extracted_data && !record.extracted_data.error ? record.extracted_data : {}
+    const { error } = await supabase
+      .from('medical_records')
+      .update({
+        record_type: type,
+        doctor_name: doctor.trim() || null,
+        hospital_name: clinic.trim() || null,
+        record_date: date || null,
+        extracted_data: { ...base, medicines: meds.filter((m) => m.name?.trim()), notes: notes.trim() || null },
+      })
+      .eq('id', record.id)
+    setBusy(false)
+    if (error) return setError("Couldn't save. Check your connection and try again.")
+    onSaved()
+  }
+
+  return (
+    <form onSubmit={save} className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+      <Panel labelledBy="edit-details" className="lg:col-span-5">
+        <PanelHead id="edit-details" title="Details" />
+        <div className="mt-4 grid gap-4">
+          <div>
+            <p id="edit-type" className="mb-2 text-[14px] font-medium text-ink-2">
+              Type
+            </p>
+            <div role="radiogroup" aria-labelledby="edit-type" className="grid grid-cols-3 gap-1 rounded-full bg-[#e6ebf1] p-1">
+              {TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={type === t.value}
+                  onClick={() => setType(t.value)}
+                  className={cn(
+                    'h-9 rounded-full text-[14px] transition-[background-color,color,box-shadow] duration-150',
+                    type === t.value ? 'bg-surface font-medium text-ink shadow-[var(--shadow-card)]' : 'text-ink-2 hover:text-ink'
+                  )}
+                >
+                  {t.label}
                 </button>
-              </div>
+              ))}
             </div>
+          </div>
+          <Field id="r-date" label="Date the doctor wrote it">
+            <Input id="r-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field id="r-doctor" label="Doctor">
+            <Input id="r-doctor" autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
+          </Field>
+          <Field id="r-clinic" label="Clinic or hospital">
+            <Input id="r-clinic" autoComplete="off" value={clinic} onChange={(e) => setClinic(e.target.value)} />
+          </Field>
+          <Field id="r-notes" label="Notes">
+            <Textarea id="r-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+        </div>
+      </Panel>
 
-            <textarea placeholder="Notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3}
-              className="px-3 py-2 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-sage resize-none" />
+      <Panel labelledBy="edit-meds" className="lg:col-span-7">
+        <PanelHead id="edit-meds" title="Medicines" count={meds.filter((m) => m.name?.trim()).length} />
+        <ul className="mt-3 space-y-2">
+          {meds.map((m, i) => (
+            <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
+              <Input aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
+              <Input aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
+              <Input aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove ${m.name || `medicine ${i + 1}`}`}
+                onClick={() => setMeds((list) => list.filter((_, j) => j !== i))}
+                className="order-2 sm:order-none"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setMeds((list) => [...list, { name: '', dosage: '', frequency: '' }])}>
+          <Plus aria-hidden="true" /> Add a medicine
+        </Button>
+      </Panel>
 
-            <div className="flex gap-2">
-              <button type="submit" className="px-4 py-2 rounded-xl bg-sage text-white text-sm font-medium hover:opacity-90 transition">
-                Save changes
-              </button>
-              <button type="button" onClick={() => setEditMode(false)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-card transition">
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+      {error && (
+        <p role="alert" className="rounded-lg bg-red-soft px-4 py-3 text-[15px] text-red-ink lg:col-span-12">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2 lg:col-span-12">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+          {busy ? 'Saving…' : 'Save changes'}
+        </Button>
       </div>
-    </div>
+    </form>
   )
 }
