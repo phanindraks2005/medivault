@@ -106,10 +106,10 @@ export default function MonthCalendar({
                   {list.slice(0, 2).map((e, k) => (
                     <span
                       key={k}
-                      className={cn('flex items-start gap-1 rounded-[5px] px-1.5 py-[3px] text-[11.5px] font-medium leading-[1.25]', chipStyle[e.kind])}
+                      className={cn('flex items-center gap-1 rounded-[5px] px-1.5 py-[3px] text-[12px] font-medium leading-[1.25]', chipStyle[e.kind])}
                     >
-                      <span className="mt-[4px] size-1.5 shrink-0 rounded-full" style={{ background: colors[e.memberId] }} />
-                      <span lang="en" className="line-clamp-2 [hyphens:auto] [overflow-wrap:break-word]">
+                      <span className="size-1.5 shrink-0 rounded-full" style={{ background: colors[e.memberId] }} />
+                      <span className="min-w-0 truncate">
                         {e.label}
                       </span>
                     </span>

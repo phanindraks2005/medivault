@@ -167,7 +167,7 @@ export function DashboardScene({ width = 940, className }: { width?: number; cla
         <span className="ml-3 text-[12px] text-ink-3">medivault · Today</span>
       </div>
       <div ref={box} className="relative w-full overflow-hidden" style={{ height: 700 * scale }}>
-        <div inert aria-hidden="true" className="absolute left-0 top-0 origin-top-left" style={{ width, transform: `scale(${scale})` }}>
+        <div inert aria-hidden="true" className="absolute left-0 top-0 origin-top-left px-8" style={{ width, transform: `scale(${scale})` }}>
           <DashboardView status="ready" members={sampleMembers} colors={sampleColors} vaccinations={sampleVaccinations} records={sampleRecords} demo preview />
         </div>
       </div>
