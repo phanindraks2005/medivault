@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
+import type { Medicine } from '@/components/dashboard/types'
+
+type SummaryRecord = {
+  record_type?: string | null
+  date?: string
+  doctor?: string | null
+  hospital?: string | null
+  medicines?: Medicine[]
+  notes?: string | null
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +25,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No records to summarize' }, { status: 400 })
     }
 
-    const recordsText = records.map((r: any, i: number) => {
-      const meds = r.medicines?.map((m: any) => `${m.name} (${m.dosage || 'dosage unknown'}, ${m.frequency || 'frequency unknown'})`).join(', ') || 'none listed'
+    const recordsText = (records as SummaryRecord[]).map((r, i) => {
+      const meds = r.medicines?.map((m) => `${m.name} (${m.dosage || 'dosage unknown'}, ${m.frequency || 'frequency unknown'})`).join(', ') || 'none listed'
       return `${i + 1}. [${r.record_type}] ${r.date} — Doctor: ${r.doctor || 'unknown'}, Hospital: ${r.hospital || 'unknown'}, Medicines: ${meds}${r.notes ? `, Notes: ${r.notes}` : ''}`
     }).join('\n')
 

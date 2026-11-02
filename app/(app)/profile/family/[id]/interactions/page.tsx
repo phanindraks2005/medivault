@@ -1,147 +1,215 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
-import Link from 'next/link'
+import { use, useCallback, useEffect, useState } from 'react'
+import { Check, Loader2, Plus, X } from 'lucide-react'
 import { supabase, authHeaders } from '@/lib/supabase'
+import { useFamily } from '@/lib/family-context'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import MemberAvatar from '@/components/app/MemberAvatar'
+import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
+import type { Medicine } from '@/components/dashboard/types'
+import { cn } from '@/lib/utils'
 
-const severityStyles: Record<string, string> = {
-  minor: 'bg-sage-light border-sage text-foreground',
-  moderate: 'bg-taupe-light border-taupe text-foreground',
-  major: 'bg-red-950 border-red-700 text-red-200',
+type Severity = 'none' | 'minor' | 'moderate' | 'major'
+type Result = {
+  overall_risk: Severity
+  summary: string
+  interactions: { medicines: string[]; severity: Exclude<Severity, 'none'>; description: string }[]
+  disclaimer?: string
 }
 
-export default function InteractionCheckerPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+// Red is kept for the one finding that needs acting on: a major interaction.
+const severity: Record<Severity, { label: string; variant: 'ok' | 'neutral' | 'due' | 'overdue' }> = {
+  none: { label: 'No known problems', variant: 'ok' },
+  minor: { label: 'Minor', variant: 'neutral' },
+  moderate: { label: 'Ask your doctor', variant: 'due' },
+  major: { label: 'Major: check before taking', variant: 'overdue' },
+}
 
-  const [member, setMember] = useState<any>(null)
-  const [medicines, setMedicines] = useState<string[]>([])
-  const [extraMedicine, setExtraMedicine] = useState('')
+export default function InteractionsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const { members, colors } = useFamily()
+  const member = members.find((m) => m.id === id)
+  const first = member?.name.split(' ')[0] || 'Back'
+
+  const [onRecord, setOnRecord] = useState<string[]>([])
+  const [included, setIncluded] = useState<Set<string>>(new Set())
+  const [added, setAdded] = useState<string[]>([])
+  const [draft, setDraft] = useState('')
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Result | null>(null)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: memberData } = await supabase.from('family_members').select('name').eq('id', id).single()
-      setMember(memberData)
-
-      const { data: records } = await supabase
-        .from('medical_records')
-        .select('extracted_data')
-        .eq('family_member_id', id)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      const meds = new Set<string>()
-      records?.forEach((r) => {
-        r.extracted_data?.medicines?.forEach((m: any) => meds.add(m.name))
-      })
-      setMedicines(Array.from(meds))
-    }
-    load()
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from('medical_records').select('record_date, created_at, extracted_data').eq('family_member_id', id)
+    if (error) return setStatus('error')
+    const rows = (data || []).sort((a, b) => (b.record_date || b.created_at).localeCompare(a.record_date || a.created_at))
+    const names = new Map<string, string>()
+    for (const r of rows) for (const m of (r.extracted_data?.medicines || []) as Medicine[]) if (m?.name && !names.has(m.name.toLowerCase())) names.set(m.name.toLowerCase(), m.name)
+    const list = [...names.values()]
+    setOnRecord(list)
+    setIncluded(new Set(list))
+    setStatus('ready')
   }, [id])
 
-  const handleCheck = async () => {
-    const fullList = extraMedicine.trim() ? [...medicines, extraMedicine.trim()] : medicines
-    if (fullList.length < 2) {
-      setError('Need at least 2 medicines on record (or add one) to check')
-      return
-    }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
+
+  const toCheck = [...onRecord.filter((m) => included.has(m)), ...added]
+
+  const addDraft = () => {
+    const name = draft.trim()
+    if (!name || toCheck.some((m) => m.toLowerCase() === name.toLowerCase())) return setDraft('')
+    setAdded((a) => [...a, name])
+    setDraft('')
+    setResult(null)
+  }
+
+  const check = async () => {
+    if (toCheck.length < 2) return setError('Choose at least two medicines to check against each other.')
     setChecking(true)
     setError('')
     setResult(null)
-
     try {
-      const res = await fetch('/api/interaction-check', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ medicines: fullList }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setResult(data)
-    } catch {
-      setError('Check failed, try again')
+      const res = await fetch('/api/interaction-check', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ medicines: toCheck }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) throw new Error(data.error || 'The checker is busy. Try again in a minute.')
+      setResult(data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
     }
     setChecking(false)
   }
 
+  const chip = 'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors duration-150'
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-5 py-6">
-        <Link href={`/profile/family/${id}`} className="text-sm text-text-secondary hover:text-foreground transition mb-6 inline-block">
-          <i className="ti ti-arrow-left" style={{ marginRight: 4 }}></i>Back to {member?.name || 'profile'}
-        </Link>
+    <Page>
+      <PageHeader
+        back={{ href: `/profile/family/${id}`, label: first }}
+        lead={member && <MemberAvatar name={member.name} color={colors[id]} size={48} />}
+        title="Interaction check"
+        sub={`Checks ${member ? `${first}'s` : 'their'} medicines against each other, and against a new one before anyone takes it.`}
+      />
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl bg-taupe flex items-center justify-center flex-shrink-0">
-            <i className="ti ti-flask" style={{ fontSize: 20, color: '#0F1115' }}></i>
-          </div>
-          <div>
-            <h1 className="text-lg font-medium text-foreground">Interaction checker</h1>
-            <p className="text-xs text-text-secondary">Checking medicines on record for {member?.name}</p>
-          </div>
-        </div>
+      {status === 'error' && <ErrorLine onRetry={load}>Couldn&apos;t load the medicines on record.</ErrorLine>}
 
-        {error && (
-          <div className="mb-4 px-4 py-3 rounded-2xl bg-red-950 text-red-200 text-sm">{error}</div>
-        )}
+      <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+        <Panel labelledBy="pick" className="lg:col-span-6">
+          <PanelHead id="pick" title="Medicines to check" count={toCheck.length} hint="Tap one to leave it out" />
 
-        <div className="bg-card rounded-2xl border border-border p-4 mb-4">
-          <p className="text-xs text-text-secondary mb-2">Medicines on record</p>
-          {medicines.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {medicines.map((m, i) => (
-                <span key={i} className="text-sm px-3 py-1 rounded-full bg-sage-light text-foreground">{m}</span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary">No medicines found on record yet.</p>
+          <p className="mt-4 text-[13px] text-ink-3">On record</p>
+          {status === 'loading' && <Skeleton className="mt-2 h-9 w-2/3 rounded-full" />}
+          {status === 'ready' && onRecord.length === 0 && <EmptyLine>No medicines have been read from {first}&apos;s records yet. Add them below.</EmptyLine>}
+          {onRecord.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {onRecord.map((m) => {
+                const on = included.has(m)
+                return (
+                  <li key={m}>
+                    <button
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        setIncluded((s) => {
+                          const n = new Set(s)
+                          if (n.has(m)) n.delete(m)
+                          else n.add(m)
+                          return n
+                        })
+                        setResult(null)
+                      }}
+                      className={cn(chip, on ? 'border-band/40 bg-band-soft text-band-deep' : 'border-line bg-surface text-ink-3 line-through')}
+                    >
+                      {on && <Check className="size-3.5" aria-hidden="true" />}
+                      {m}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           )}
-        </div>
 
-        <div className="bg-card rounded-2xl border border-border p-4 mb-4 flex flex-col gap-3">
-          <p className="text-xs text-text-secondary">Optionally add a medicine to check against the list above</p>
-          <div className="flex gap-2">
-            <input
-              placeholder="e.g. Ibuprofen"
-              value={extraMedicine}
-              onChange={(e) => setExtraMedicine(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-sage"
-            />
-          </div>
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            className="px-4 py-2 rounded-xl bg-taupe text-[#0F1115] text-sm font-medium hover:opacity-90 transition disabled:opacity-50 self-start"
+          {added.length > 0 && (
+            <>
+              <p className="mt-5 text-[13px] text-ink-3">Added for this check</p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {added.map((m) => (
+                  <li key={m} className={cn(chip, 'border-line bg-surface pr-1.5 text-ink')}>
+                    {m}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${m}`}
+                      onClick={() => {
+                        setAdded((a) => a.filter((x) => x !== m))
+                        setResult(null)
+                      }}
+                      className="grid size-6 place-items-center rounded-full text-ink-3 hover:bg-canvas hover:text-ink"
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              addDraft()
+            }}
+            className="mt-5 flex gap-2"
           >
-            {checking ? 'Checking…' : 'Check for interactions'}
-          </button>
-        </div>
+            <label htmlFor="new-med" className="sr-only">
+              A new medicine to check
+            </label>
+            <Input id="new-med" autoComplete="off" spellCheck={false} placeholder="A new medicine, e.g. Azithromycin…" value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <Button type="submit" variant="outline" disabled={!draft.trim()}>
+              <Plus aria-hidden="true" /> Add
+            </Button>
+          </form>
 
-        {result && (
-          <div className="flex flex-col gap-3">
-            <div className={`rounded-2xl border p-4 ${severityStyles[result.overall_risk] || severityStyles.minor}`}>
-              <p className="text-sm font-medium capitalize">{result.overall_risk === 'none' ? 'No significant interactions found' : `${result.overall_risk} risk found`}</p>
-              <p className="text-sm mt-1 opacity-90">{result.summary}</p>
-            </div>
+          <Button className="mt-5 w-full sm:w-auto" onClick={check} disabled={checking || toCheck.length < 2}>
+            {checking && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {checking ? 'Checking…' : `Check ${toCheck.length} medicines`}
+          </Button>
+          {checking && <p className="mt-2 text-[13px] text-ink-3">This can take up to half a minute when the service is busy.</p>}
+        </Panel>
 
-            {result.interactions?.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {result.interactions.map((interaction: any, i: number) => (
-                  <div key={i} className={`rounded-2xl border p-4 ${severityStyles[interaction.severity] || severityStyles.minor}`}>
-                    <p className="text-sm font-medium">{interaction.medicines.join(' + ')}</p>
-                    <p className="text-xs mt-1 capitalize opacity-80">{interaction.severity} severity</p>
-                    <p className="text-sm mt-2 opacity-90">{interaction.description}</p>
+        <Panel labelledBy="result" className="lg:col-span-6">
+          <PanelHead id="result" title="Result" action={result && <Badge variant={severity[result.overall_risk]?.variant || 'neutral'}>{severity[result.overall_risk]?.label}</Badge>} />
+          <div aria-live="polite">
+            {error && (
+              <p role="alert" className="mt-3 rounded-lg border border-line bg-surface px-4 py-3 text-[15px]">
+                {error}
+              </p>
+            )}
+            {!result && !error && <EmptyLine>Choose the medicines and run the check. Results appear here.</EmptyLine>}
+            {result && (
+              <div className="mt-3 space-y-2">
+                <p className="rounded-lg border border-line bg-surface p-4 text-[16px] leading-relaxed">{result.summary}</p>
+                {result.interactions?.map((it, i) => (
+                  <div key={i} className="rounded-lg border border-line bg-surface p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[15px] font-semibold">{it.medicines.join(' + ')}</p>
+                      <Badge variant={severity[it.severity]?.variant || 'neutral'}>{severity[it.severity]?.label || it.severity}</Badge>
+                    </div>
+                    <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">{it.description}</p>
                   </div>
                 ))}
+                {result.disclaimer && <p className="pt-1 text-[13px] text-ink-3">{result.disclaimer}</p>}
               </div>
             )}
-
-            <p className="text-xs text-text-muted text-center mt-1">{result.disclaimer}</p>
           </div>
-        )}
+        </Panel>
       </div>
-    </div>
+    </Page>
   )
 }
