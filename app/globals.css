@@ -157,6 +157,7 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   body {
     @apply bg-background text-foreground;
@@ -219,7 +220,7 @@
     radial-gradient(38% 42% at 18% 22%, #12a594 0%, transparent 70%),
     radial-gradient(34% 38% at 78% 18%, #8fd3ff 0%, transparent 70%),
     radial-gradient(36% 40% at 62% 72%, #6ee7d6 0%, transparent 70%);
-  animation: mesh-a 28s ease-in-out infinite alternate;
+  animation: mesh-a 28s ease-in-out 2 alternate;
 }
 .mesh::after {
   background:
@@ -227,7 +228,7 @@
     radial-gradient(28% 30% at 10% 40%, #0b6b60 0%, transparent 70%),
     radial-gradient(26% 30% at 50% 40%, #c9f2e6 0%, transparent 70%);
   opacity: 0.85;
-  animation: mesh-b 36s ease-in-out infinite alternate;
+  animation: mesh-b 36s ease-in-out 2 alternate;
 }
 @keyframes mesh-a {
   to { transform: translate3d(6%, 4%, 0) rotate(8deg) scale(1.08); }

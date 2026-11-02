@@ -13,6 +13,7 @@ import DateLeaf from '@/components/app/DateLeaf'
 import EmergencyCardView from '@/components/app/EmergencyCardView'
 import { ease } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import { useHydrated } from '@/lib/use-hydrated'
 
 
 const RX = [
@@ -23,19 +24,27 @@ const RX = [
 
 // The moment a photo of a prescription becomes a dated record: the page is
 // scanned, each medicine is read out of the doctor's hand, and the next due
-// date lands on the calendar. Loops while it is on screen.
+// date lands on the calendar. Plays twice, then rests on the finished record.
+const ROUNDS = 2
+
 export function PrescriptionScene({ className }: { className?: string }) {
   const reduce = useReducedMotion()
-  const [step, setStep] = useState(reduce ? RX.length + 2 : 0)
+  const last = RX.length + 1
+  const [step, setStep] = useState(reduce ? last : 0)
+  const [round, setRound] = useState(1)
 
   useEffect(() => {
-    if (reduce) return
+    if (reduce || (step === last && round >= ROUNDS)) return
     const delays = [1900, 700, 700, 900, 4600]
-    const t = setTimeout(() => setStep((s) => (s + 1) % (RX.length + 2)), delays[step] ?? 1000)
+    const t = setTimeout(() => {
+      if (step === last) setRound((r) => r + 1)
+      setStep((s) => (s + 1) % (last + 1))
+    }, delays[step] ?? 1000)
     return () => clearTimeout(t)
-  }, [step, reduce])
+  }, [step, round, reduce, last])
 
   const reading = step === 0
+  const hydrated = useHydrated()
   const leaf = dayLeaf(sampleVaccinations[1].next_due_date!)
 
   return (
@@ -127,6 +136,7 @@ export function PrescriptionScene({ className }: { className?: string }) {
       </div>
 
       {/* The next date it put on the calendar. */}
+      {hydrated && (
       <motion.div
         animate={{ opacity: step > RX.length ? 1 : 0.0, y: step > RX.length ? 0 : 12 }}
         transition={{ duration: 0.4, ease }}
@@ -141,6 +151,7 @@ export function PrescriptionScene({ className }: { className?: string }) {
         </div>
         <Badge variant="due">{dueLabel(daysFromToday(sampleVaccinations[1].next_due_date!))}</Badge>
       </motion.div>
+      )}
     </div>
   )
 }

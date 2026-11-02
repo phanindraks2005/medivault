@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Field } from '@/components/app/kit'
+import { Field, Segmented } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 
 // The bucket accepts exactly these; anything else would fail after upload.
@@ -45,7 +45,7 @@ export default function UploadRecordDialog({
     setError('')
     if (!f) return
     if (!ACCEPT.split(',').includes(f.type)) return setError('Use a photo (JPEG, PNG, WebP or HEIC) or a PDF.')
-    if (f.size > MAX_BYTES) return setError('That file is over 10 MB. Try a smaller photo or a compressed PDF.')
+    if (f.size > MAX_BYTES) return setError('That file is over 10 MB. Try a smaller photo or a compressed PDF.')
     setFile(f)
   }
 
@@ -123,26 +123,8 @@ export default function UploadRecordDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div>
-            <p id={`${id}-type`} className="mb-2 text-[14px] font-medium text-ink-2">
-              Type
-            </p>
-            <div role="radiogroup" aria-labelledby={`${id}-type`} className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1">
-              {TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={type === t.value}
-                  onClick={() => setType(t.value)}
-                  className={cn(
-                    'h-9 rounded-full text-[14px] transition-[background-color,color,box-shadow] duration-150',
-                    type === t.value ? 'bg-surface font-medium text-ink shadow-[var(--shadow-card)]' : 'text-ink-2 hover:text-ink'
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <p className="mb-2 text-[14px] font-medium text-ink-2">Type</p>
+            <Segmented label="Type of record" options={TYPES} value={type} onChange={setType} />
           </div>
 
           <label
@@ -169,7 +151,7 @@ export default function UploadRecordDialog({
               <span className="text-[15px] font-medium">Choose a photo or PDF, or drop it here</span>
             )}
             <span id={`${id}-file-hint`} className="text-[13px] text-ink-3">
-              JPEG, PNG, WebP, HEIC or PDF, up to 10 MB
+              JPEG, PNG, WebP, HEIC or PDF, up to 10 MB
             </span>
             <input
               id={`${id}-file`}
@@ -200,7 +182,7 @@ export default function UploadRecordDialog({
             <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy || !file}>
+            <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
               {busy ? 'Uploading…' : 'Upload and read'}
             </Button>

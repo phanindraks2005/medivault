@@ -15,6 +15,7 @@ import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel, formatDay, startOfToday } from '@/lib/dates'
 import { rise, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import { useHydrated } from '@/lib/use-hydrated'
 import type { CalendarEvent, MedicalRecord, Vaccination } from './types'
 
 // How far ahead "Coming up" looks. Overdue items always show.
@@ -76,7 +77,9 @@ export default function DashboardView({ status, members, colors, vaccinations, r
 
   const signUp = '/auth?mode=signup'
   const addHref = demo ? signUp : self ? `/profile/family/${self.id}?upload=1` : '/profile'
-  const loading = status === 'loading'
+  // Dates depend on the visitor's clock, so nothing dated renders on the server.
+  const hydrated = useHydrated()
+  const loading = status === 'loading' || !hydrated
   const Title = preview ? 'p' : 'h1'
   const enter = preview ? {} : { initial: 'hidden', animate: 'show' }
 
@@ -100,7 +103,7 @@ export default function DashboardView({ status, members, colors, vaccinations, r
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
           <Title className="font-heading text-[26px] leading-tight tracking-[-0.03em] sm:text-[32px]">
-            {today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {hydrated ? today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : <span className="inline-block h-8 w-64 animate-pulse rounded-md bg-muted align-middle" />}
           </Title>
           <p className={cn('mt-1.5 max-w-[64ch] text-[16px]', overdue.length && !loading ? 'text-ink' : 'text-ink-2')}>{finding}</p>
         </div>

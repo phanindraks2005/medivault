@@ -129,7 +129,7 @@ export default function OnboardingPage() {
                     <Field id="gender" label="Gender">
                       <Select value={form.gender || null} onValueChange={(v) => set('gender')(String(v ?? ''))}>
                         <SelectTrigger id="gender" className="w-full">
-                          <SelectValue placeholder="Choose" />
+                          <SelectValue placeholder="Choose…" />
                         </SelectTrigger>
                         <SelectContent>
                           {GENDERS.map((g) => (
@@ -143,7 +143,7 @@ export default function OnboardingPage() {
                     <Field id="blood" label="Blood group">
                       <Select value={form.bloodGroup || null} onValueChange={(v) => set('bloodGroup')(String(v ?? ''))}>
                         <SelectTrigger id="blood" className="w-full">
-                          <SelectValue placeholder="Choose" />
+                          <SelectValue placeholder="Choose…" />
                         </SelectTrigger>
                         <SelectContent>
                           {BLOOD_GROUPS.map((b) => (

@@ -34,6 +34,7 @@ export default function Logo({
       <LogoMark size={size} tone={tone} />
       {showWordmark && (
         <span
+          translate="no"
           className={cn('font-semibold tracking-[-0.03em] leading-none', tone === 'white' ? 'text-white' : 'text-ink')}
           style={{ fontSize: size * 0.66 }}
         >

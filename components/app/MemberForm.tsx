@@ -82,6 +82,11 @@ export default function MemberForm({
     <form
       onSubmit={async (e) => {
         e.preventDefault()
+        if (!v.name.trim()) {
+          setError('Add a name first.')
+          document.getElementById('m-name')?.focus()
+          return
+        }
         setBusy(true)
         setError('')
         const problem = await onSubmit(v)
@@ -97,7 +102,7 @@ export default function MemberForm({
         <Field id="m-relation" label="Relation">
           <Select value={relationValue} onValueChange={(x) => set('relation')(String(x ?? ''))}>
             <SelectTrigger id="m-relation" className="w-full">
-              <SelectValue placeholder="Choose" />
+              <SelectValue placeholder="Choose…" />
             </SelectTrigger>
             <SelectContent>
               {RELATIONS.map((r) => (
@@ -115,7 +120,7 @@ export default function MemberForm({
       <Field id="m-gender" label="Gender">
         <Select value={v.gender || null} onValueChange={(x) => set('gender')(String(x ?? ''))}>
           <SelectTrigger id="m-gender" className="w-full">
-            <SelectValue placeholder="Choose" />
+            <SelectValue placeholder="Choose…" />
           </SelectTrigger>
           <SelectContent>
             {GENDERS.map((g) => (
@@ -129,7 +134,7 @@ export default function MemberForm({
       <Field id="m-blood" label="Blood group">
         <Select value={v.blood_group || null} onValueChange={(x) => set('blood_group')(String(x ?? ''))}>
           <SelectTrigger id="m-blood" className="w-full">
-            <SelectValue placeholder="Choose" />
+            <SelectValue placeholder="Choose…" />
           </SelectTrigger>
           <SelectContent>
             {BLOOD_GROUPS.map((b) => (
@@ -200,7 +205,7 @@ export default function MemberForm({
         <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button type="submit" disabled={busy || !v.name.trim()}>
+        <Button type="submit" disabled={busy}>
           {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
           {busy ? busyLabel : submitLabel}
         </Button>

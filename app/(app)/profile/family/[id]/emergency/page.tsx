@@ -170,7 +170,7 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
         </dl>
 
         <footer className="bg-canvas px-6 py-4 text-[14px] text-ink-3 sm:px-8 print:bg-white">
-          From MediVault, {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}. Medicines are as read from prescriptions; confirm with a doctor.
+          From MediVault{status === 'ready' && `, ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}. Medicines are as read from prescriptions; confirm with a doctor.
         </footer>
       </article>
     </Page>

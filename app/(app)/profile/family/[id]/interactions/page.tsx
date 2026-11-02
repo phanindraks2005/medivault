@@ -170,8 +170,8 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
             <label htmlFor="new-med" className="sr-only">
               A new medicine to check
             </label>
-            <Input id="new-med" autoComplete="off" spellCheck={false} placeholder="A new medicine, e.g. Azithromycin…" value={draft} onChange={(e) => setDraft(e.target.value)} />
-            <Button type="submit" variant="outline" disabled={!draft.trim()}>
+            <Input id="new-med" name="new-medicine" autoComplete="off" spellCheck={false} placeholder="A new medicine, e.g. Azithromycin…" value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <Button type="submit" variant="outline">
               <Plus aria-hidden="true" /> Add
             </Button>
           </form>

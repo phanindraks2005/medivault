@@ -60,6 +60,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-canvas print:bg-white">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-surface focus:px-4 focus:py-2 focus:shadow-[var(--shadow-lift)]"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar, on the same ground as the frame */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] flex-col px-3 pb-3 pt-5 lg:flex print:hidden">
         <div className="px-3">
@@ -195,7 +201,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
           )}
-          <main className="pb-24 lg:pb-0">{children}</main>
+          <main id="main" className="pb-24 lg:pb-0">{children}</main>
         </div>
       </div>
 

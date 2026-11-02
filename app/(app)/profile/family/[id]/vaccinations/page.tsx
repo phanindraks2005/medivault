@@ -197,6 +197,10 @@ function AddVaccination({
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!vaccine.trim()) {
+      document.getElementById('v-name')?.focus()
+      return setError('Add the vaccine name first.')
+    }
     if (next && given && next < given) return setError('The next dose can’t be before the last one.')
     setBusy(true)
     setError('')
@@ -233,16 +237,16 @@ function AddVaccination({
         </DialogHeader>
         <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <Field id="v-name" label="Vaccine" className="sm:col-span-2">
-            <Input id="v-name" autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
+            <Input id="v-name" name="vaccine" autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
           </Field>
           <Field id="v-given" label="Date given">
-            <Input id="v-given" type="date" value={given} onChange={(e) => setGiven(e.target.value)} />
+            <Input id="v-given" name="date-given" type="date" value={given} onChange={(e) => setGiven(e.target.value)} />
           </Field>
           <Field id="v-next" label="Next due">
-            <Input id="v-next" type="date" value={next} onChange={(e) => setNext(e.target.value)} />
+            <Input id="v-next" name="next-due" type="date" value={next} onChange={(e) => setNext(e.target.value)} />
           </Field>
           <Field id="v-notes" label="Notes" hint="Optional" className="sm:col-span-2">
-            <Textarea id="v-notes" rows={2} placeholder="Clinic, batch number…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Textarea id="v-notes" name="notes" autoComplete="off" rows={2} placeholder="Clinic, batch number…" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           {error && (
             <p role="alert" className="rounded-lg bg-red-soft px-4 py-3 text-[15px] text-red-ink sm:col-span-2">
@@ -253,7 +257,7 @@ function AddVaccination({
             <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy || !vaccine.trim()}>
+            <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
               {busy ? 'Saving…' : 'Add vaccination'}
             </Button>

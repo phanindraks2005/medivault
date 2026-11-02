@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DateLeaf from '@/components/app/DateLeaf'
-import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
+import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, Segmented } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
 
@@ -268,7 +268,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
                 </a>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element -- signed URL from a private bucket, not optimisable
-                <img src={fileUrl} alt={`The uploaded ${typeLabel(record.record_type).toLowerCase()}`} className="max-h-[640px] w-full object-contain" onError={() => setFileFailed(true)} />
+                <img src={fileUrl} alt={`The uploaded ${typeLabel(record.record_type).toLowerCase()}`} width={800} height={1000} className="h-auto max-h-[640px] w-full object-contain" onError={() => setFileFailed(true)} />
               )}
             </div>
           </Panel>
@@ -304,6 +304,15 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  // Leaving the page with unsaved edits asks first.
+  const [dirty, setDirty] = useState(false)
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
   const setMed = (i: number, k: keyof Medicine, v: string) => setMeds((list) => list.map((m, j) => (j === i ? { ...m, [k]: v } : m)))
 
   const save = async (e: React.FormEvent) => {
@@ -323,47 +332,30 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
       .eq('id', record.id)
     setBusy(false)
     if (error) return setError("Couldn't save. Check your connection and try again.")
+    setDirty(false)
     onSaved()
   }
 
   return (
-    <form onSubmit={save} className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+    <form onSubmit={save} onChange={() => setDirty(true)} className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
       <Panel labelledBy="edit-details" className="lg:col-span-5">
         <PanelHead id="edit-details" title="Details" />
         <div className="mt-4 grid gap-4">
           <div>
-            <p id="edit-type" className="mb-2 text-[14px] font-medium text-ink-2">
-              Type
-            </p>
-            <div role="radiogroup" aria-labelledby="edit-type" className="grid grid-cols-3 gap-1 rounded-full bg-[#e6ebf1] p-1">
-              {TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={type === t.value}
-                  onClick={() => setType(t.value)}
-                  className={cn(
-                    'h-9 rounded-full text-[14px] transition-[background-color,color,box-shadow] duration-150',
-                    type === t.value ? 'bg-surface font-medium text-ink shadow-[var(--shadow-card)]' : 'text-ink-2 hover:text-ink'
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <p className="mb-2 text-[14px] font-medium text-ink-2">Type</p>
+            <Segmented label="Type of record" options={TYPES} value={type} onChange={(v) => { setType(v); setDirty(true) }} />
           </div>
           <Field id="r-date" label="Date the doctor wrote it">
-            <Input id="r-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input id="r-date" name="record-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
           <Field id="r-doctor" label="Doctor">
-            <Input id="r-doctor" autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
+            <Input id="r-doctor" name="doctor" autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
           </Field>
           <Field id="r-clinic" label="Clinic or hospital">
-            <Input id="r-clinic" autoComplete="off" value={clinic} onChange={(e) => setClinic(e.target.value)} />
+            <Input id="r-clinic" name="clinic" autoComplete="off" value={clinic} onChange={(e) => setClinic(e.target.value)} />
           </Field>
           <Field id="r-notes" label="Notes">
-            <Textarea id="r-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Textarea id="r-notes" name="notes" autoComplete="off" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </div>
       </Panel>
@@ -373,9 +365,9 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
         <ul className="mt-3 space-y-2">
           {meds.map((m, i) => (
             <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
-              <Input aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
-              <Input aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
-              <Input aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
+              <Input name={`medicine-${i}-name`} autoComplete="off" aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
+              <Input name={`medicine-${i}-dose`} autoComplete="off" aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
+              <Input name={`medicine-${i}-timing`} autoComplete="off" aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
               <Button
                 type="button"
                 variant="ghost"

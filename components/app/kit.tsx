@@ -115,6 +115,60 @@ export function ErrorLine({ children, onRetry }: { children: React.ReactNode; on
   )
 }
 
+// A pill-shaped radio group: one tab stop, arrow keys move the choice.
+export function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  label: string
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  className?: string
+}) {
+  const move = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const i = (options.findIndex((o) => o.value === value) + step + options.length) % options.length
+    onChange(options[i].value)
+    const buttons = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')
+    buttons?.[i]?.focus()
+  }
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn('grid gap-1 rounded-full bg-[#e6ebf1] p-1', className)}
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={move}
+            className={cn(
+              'h-9 rounded-full text-[14px] transition-[background-color,color,box-shadow] duration-150',
+              on ? 'bg-surface font-medium text-ink shadow-[var(--shadow-card)]' : 'text-ink-2 hover:text-ink'
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Field({ id, label, hint, children, className }: { id: string; label: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-2', className)}>

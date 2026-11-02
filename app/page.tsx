@@ -21,7 +21,7 @@ const FEATURES = [
     stage: 'features',
     crop: <ReadCrop />,
     lines: [
-      'Photo or PDF, up to 10 MB',
+      'Photo or PDF, up to 10 MB',
       'The doctor and the clinic',
       'The date the doctor wrote it, not the upload date',
       'Every medicine with its dose and timing',
@@ -103,7 +103,7 @@ const PRIVACY = [
   ['Row-level security', 'Every table returns only the rows the signed-in account owns. Another account gets nothing back.'],
   ['Private file storage', 'Uploads go to a private bucket, in a folder only your account can open. There are no public links.'],
   ['Checked on the server', 'Every AI request verifies your login first and only touches records your account owns.'],
-  ['Only photos and PDFs', 'Files are limited to images and PDFs up to 10 MB, enforced by the storage bucket itself.'],
+  ['Only photos and PDFs', 'Files are limited to images and PDFs up to 10 MB, enforced by the storage bucket itself.'],
 ]
 
 const H2 = 'font-heading text-[clamp(36px,3.6vw,54px)] leading-[1.04] tracking-[-0.035em]'
