@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import AuthSplit from '@/components/auth/AuthSplit'
+import EmergencyCardView from '@/components/app/EmergencyCardView'
+import { ageFrom, allergyList } from '@/lib/family'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -67,9 +69,21 @@ export default function OnboardingPage() {
 
   return (
     <AuthSplit
-      image="/illustrations/family.svg"
-      heading="Start with you, then add the people you look after"
-      points={['Parents, partner and children in one account', 'Blood group and allergies ready for the emergency card', 'You can change any of this later']}
+      caption="Your emergency card, filling in as you type."
+      scene={
+        <EmergencyCardView
+          data={{
+            name: form.name.trim(),
+            color: '#3b6fd8',
+            age: ageFrom(form.dob),
+            gender: form.gender || null,
+            bloodGroup: form.bloodGroup || null,
+            allergies: allergyList(form.allergies),
+            medicines: [],
+            contact: [form.emergencyContactName.trim(), form.emergencyContactPhone.trim()].filter(Boolean).join(' · ') || null,
+          }}
+        />
+      }
     >
       <div>
         <div className="flex items-center gap-3" aria-label={`Step ${step + 1} of 2`}>
@@ -102,7 +116,7 @@ export default function OnboardingPage() {
           >
             {step === 0 ? (
               <>
-                <h1 className="font-heading text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em]">About you</h1>
+                <h1 className="font-heading text-[28px] leading-[1.1] tracking-[-0.03em] sm:text-[32px]">About you</h1>
                 <p className="mt-2 text-ink-2">This becomes your own profile. You&apos;ll add family members next.</p>
                 <div className="mt-7 space-y-5">
                   <Field id="name" label="Your name">
@@ -145,11 +159,11 @@ export default function OnboardingPage() {
               </>
             ) : (
               <>
-                <h1 className="font-heading text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em]">Health basics</h1>
+                <h1 className="font-heading text-[28px] leading-[1.1] tracking-[-0.03em] sm:text-[32px]">Health basics</h1>
                 <p className="mt-2 text-ink-2">All optional. These show up on your emergency card.</p>
                 <div className="mt-7 space-y-5">
                   <Field id="allergies" label="Allergies" hint="Separate with commas">
-                    <Input id="allergies" name="allergies" autoComplete="off" placeholder="e.g. Penicillin, peanuts…" value={form.allergies} onChange={(e) => set('allergies')(e.target.value)} />
+                    <Input id="allergies" name="allergies" aria-describedby="allergies-hint" autoComplete="off" placeholder="e.g. Penicillin, peanuts…" value={form.allergies} onChange={(e) => set('allergies')(e.target.value)} />
                   </Field>
                   <Field id="conditions" label="Known conditions">
                     <Input id="conditions" name="conditions" autoComplete="off" placeholder="e.g. Asthma…" value={form.knownConditions} onChange={(e) => set('knownConditions')(e.target.value)} />
@@ -175,7 +189,7 @@ export default function OnboardingPage() {
             )}
 
             {error && (
-              <p role="alert" className="mt-5 rounded-xl bg-red-soft px-4 py-3 text-red-ink">
+              <p role="alert" className="mt-5 rounded-lg bg-red-soft px-4 py-3 text-red-ink">
                 {error}
               </p>
             )}
@@ -213,10 +227,10 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <Label htmlFor={id} className="text-[14px] font-semibold">
+        <Label htmlFor={id} className="text-[14px] font-medium text-ink-2">
           {label}
         </Label>
-        {hint && <span className="text-[13px] text-ink-3">{hint}</span>}
+        {hint && <span id={`${id}-hint`} className="text-[13px] text-ink-3">{hint}</span>}
       </div>
       {children}
     </div>

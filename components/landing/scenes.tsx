@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Check, Loader2, Phone, ScanLine } from 'lucide-react'
+import { Check, Loader2, ScanLine } from 'lucide-react'
 import DashboardView from '@/components/dashboard/DashboardView'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,7 @@ import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, dueLabel, daysFromToday } from '@/lib/dates'
 import { sampleColors, sampleMembers, sampleRecords, sampleVaccinations } from '@/lib/sample-family'
 import DateLeaf from '@/components/app/DateLeaf'
+import EmergencyCardView from '@/components/app/EmergencyCardView'
 import { ease } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
@@ -43,13 +44,13 @@ export function PrescriptionScene({ className }: { className?: string }) {
       <div className="absolute left-0 top-[2%] w-[60%] -rotate-[4deg] rounded-md bg-[#fffdf7] p-[5%] shadow-[var(--shadow-lift)]">
         <div className="flex items-start justify-between gap-2 border-b-2 border-band/70 pb-2">
           <div>
-            <p className="text-[clamp(11px,1vw,14px)] font-semibold leading-tight text-band-deep">Dr. Anita Rao</p>
-            <p className="text-[clamp(9px,0.75vw,11px)] text-ink-3">MBBS, MD · City Care Clinic</p>
+            <p className="text-[clamp(12px,1vw,14px)] font-semibold leading-tight text-band-deep">Dr. Anita Rao</p>
+            <p className="text-[clamp(11px,0.8vw,12px)] text-ink-3">MBBS, MD · City Care Clinic</p>
           </div>
           <span className="font-display text-[clamp(18px,1.8vw,26px)] font-bold leading-none text-band-deep">℞</span>
         </div>
-        <p className="mt-2 text-[clamp(9px,0.75vw,11px)] text-ink-3 num">Ramesh Sharma · 62 M</p>
-        <ul className="mt-2 space-y-[6%] text-[clamp(10px,0.95vw,13.5px)] italic leading-snug text-[#24325a]">
+        <p className="mt-2 text-[clamp(11px,0.8vw,12px)] text-ink-3 num">Ramesh Sharma · 62 M</p>
+        <ul className="mt-2 space-y-[6%] text-[clamp(11px,0.95vw,13.5px)] italic leading-snug text-[#24325a]">
           {RX.map((m) => (
             <li key={m.name} className="-rotate-[0.6deg]">{m.hand}</li>
           ))}
@@ -221,49 +222,22 @@ export function FamilyScene({ className }: { className?: string }) {
 
 export function EmergencyCard({ memberId, className }: { memberId: string; className?: string }) {
   const m = sampleMembers.find((x) => x.id === memberId) || sampleMembers[0]
-  const color = sampleColors[m.id]
-  const meds = medicinesFor(m.id)
-  const allergies = allergyList(m.allergies)
-
   return (
-    <div data-ui className={cn('w-full max-w-[340px] overflow-hidden rounded-2xl bg-surface shadow-[var(--shadow-float)]', className)}>
+    <div data-ui className={cn('w-full max-w-[340px]', className)}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25, ease }}>
-          <div className="bg-navy px-5 pb-5 pt-5 text-white" style={{ boxShadow: `inset 0 4px 0 ${color}` }}>
-            <p className="text-[13px] font-medium text-white/70">Emergency information</p>
-            <div className="mt-3 flex items-center gap-3">
-              <MemberAvatar name={m.name} color={color} size={44} ring />
-              <div>
-                <p className="text-[20px] font-semibold leading-tight">{m.name}</p>
-                <p className="text-[13px] text-white/70 num">
-                  {ageFrom(m.dob)} yrs · {m.gender}
-                </p>
-              </div>
-            </div>
-          </div>
-          <dl className="divide-y divide-line px-5">
-            <div className="flex items-end justify-between py-4">
-              <dt className="text-[13px] text-ink-3">Blood group</dt>
-              <dd className="font-display text-[44px] font-bold leading-[0.85] num">{m.blood_group}</dd>
-            </div>
-            <div className="py-4">
-              <dt className="text-[13px] text-ink-3">Allergies</dt>
-              <dd className="mt-1.5 flex flex-wrap gap-1.5">
-                {allergies.length ? allergies.map((a) => <Badge key={a} variant="overdue">{a}</Badge>) : <span className="text-[15px]">None known</span>}
-              </dd>
-            </div>
-            <div className="py-4">
-              <dt className="text-[13px] text-ink-3">Current medicines</dt>
-              <dd className="mt-1 text-[15px] leading-relaxed">{meds.length ? meds.join(' · ') : 'None on record'}</dd>
-            </div>
-            <div className="flex items-center gap-3 py-4">
-              <Phone className="size-[18px] text-band" aria-hidden="true" />
-              <div className="min-w-0">
-                <dt className="text-[13px] text-ink-3">Call</dt>
-                <dd className="truncate text-[15px] font-semibold num">{CONTACT[m.id]}</dd>
-              </div>
-            </div>
-          </dl>
+          <EmergencyCardView
+            data={{
+              name: m.name,
+              color: sampleColors[m.id],
+              age: ageFrom(m.dob),
+              gender: m.gender,
+              bloodGroup: m.blood_group,
+              allergies: allergyList(m.allergies),
+              medicines: medicinesFor(m.id),
+              contact: CONTACT[m.id],
+            }}
+          />
         </motion.div>
       </AnimatePresence>
     </div>
