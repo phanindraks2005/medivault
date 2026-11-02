@@ -7,12 +7,12 @@ A health records app for families. Upload a prescription or lab report, and Medi
 - **Try it without an account.** `/demo` opens the real dashboard with a sample family. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
 - **Calendar dashboard.** A month view of due and overdue vaccinations and the dates prescriptions were written, each family member in their own colour. Red is kept for overdue items and allergies.
 - **Family profiles.** One account manages records for every family member: blood group, allergies, known conditions.
-- **Record extraction.** Upload a photo or scan of a prescription or report. Gemini extracts the doctor name, record date, medicines with dosage and frequency, and notes into structured data.
+- **Record extraction.** Upload a photo or PDF (JPEG, PNG, WebP, HEIC or PDF, up to 10 MB) of a prescription or report. Gemini extracts the doctor name, the date the doctor wrote it, medicines with dosage and frequency, and notes. The record page shows the original file next to what was read, lets you correct anything (including the date), and offers a retry if reading fails.
 - **Doc, the health copilot.** A chat assistant that answers questions using your family's actual records ("what is Dad taking for blood pressure?"). It gives general guidance only and points to a doctor for anything serious.
 - **Interaction checker.** Checks a family member's current medicines against each other for known interactions.
 - **Visit summary.** Generates a short summary of a member's records to bring to a doctor's appointment.
-- **Emergency card.** A printable page with blood group, allergies, conditions and current medicines.
-- **Vaccination tracker** per family member.
+- **Emergency card.** A large-type page with blood group, allergies, current medicines and a one-tap call button; it prints cleanly on one page.
+- **Vaccination tracker** per family member: next due first, overdue in red, due within 30 days in marigold.
 - **Quick tools** on the dashboard: medicine lookup, symptom triage, and a translator for medical jargon in doctor's notes.
 
 ## Tech stack
