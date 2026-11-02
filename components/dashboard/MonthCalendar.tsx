@@ -128,7 +128,7 @@ export default function MonthCalendar({
                       className={cn('flex items-start gap-1 rounded-md px-1.5 py-[3px] text-[11.5px] font-medium leading-[1.25]', chipStyle[e.kind])}
                     >
                       <span className="mt-[4px] size-1.5 shrink-0 rounded-full" style={{ background: colors[e.memberId] }} />
-                      <span lang="en" className="line-clamp-2 [hyphens:auto]">{e.label}</span>
+                      <span lang="en" className="line-clamp-2 [hyphens:auto] [overflow-wrap:anywhere]">{e.label}</span>
                     </motion.span>
                   ))}
                   {list.length > 2 && <span className={cn('block px-1 text-[11px] font-medium', isToday ? 'text-white/80' : 'text-ink-3')}>+{list.length - 2} more</span>}
