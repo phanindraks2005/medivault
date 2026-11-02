@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -14,8 +14,6 @@ export async function POST(req: NextRequest) {
     if (!text || !text.trim()) {
       return NextResponse.json({ error: 'Missing text to translate' }, { status: 400 })
     }
-
-    const model = getModel()
 
     const prompt = `You are a medical translator that explains confusing doctor's notes, lab reports, or medical jargon in plain, simple language for a non-medical person. Here's the text:
 
@@ -32,7 +30,7 @@ Return ONLY valid JSON, no markdown, no preamble:
   "disclaimer": "This is a plain-language explanation only, not medical advice. Always discuss your results with your doctor."
 }`
 
-    const result = await withRetry(() => model.generateContent(prompt))
+    const result = await generate((model) => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)

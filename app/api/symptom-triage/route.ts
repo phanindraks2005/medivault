@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -15,8 +15,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing symptoms' }, { status: 400 })
     }
 
-    const model = getModel()
-
     const prompt = `You are a cautious health guidance assistant, NOT a doctor. A user describes these symptoms: "${symptoms}"
 
 Your job is ONLY to give general guidance and an urgency level — NEVER diagnose a specific condition or prescribe medicine. Always err on the side of caution.
@@ -31,7 +29,7 @@ Return ONLY valid JSON, no markdown, no preamble:
   "disclaimer": "This is general guidance only, not a medical diagnosis. Please consult a doctor for proper evaluation."
 }`
 
-    const result = await withRetry(() => model.generateContent(prompt))
+    const result = await generate((model) => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)

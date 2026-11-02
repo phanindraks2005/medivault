@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -55,9 +55,6 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(arrayBuffer).toString('base64')
     const mimeType = fileData.type || 'image/jpeg'
 
-    // Send to Gemini for extraction
-    const model = getModel()
-
     const prompt = `You are analyzing a medical prescription or lab report image. Extract the following information and return ONLY valid JSON, no markdown, no preamble:
 
 {
@@ -71,9 +68,10 @@ export async function POST(req: NextRequest) {
 
 If this doesn't look like a prescription or medical report, return {"error": "not a medical document"}.`
 
+    // Send to Gemini for extraction
     let extracted
     try {
-      const result = await withRetry(() => model.generateContent([
+      const result = await generate((model) => model.generateContent([
         prompt,
         { inlineData: { data: base64, mimeType } },
       ]))

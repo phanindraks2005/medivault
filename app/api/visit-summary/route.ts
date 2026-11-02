@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -14,8 +14,6 @@ export async function POST(req: NextRequest) {
     if (!records || records.length === 0) {
       return NextResponse.json({ error: 'No records to summarize' }, { status: 400 })
     }
-
-    const model = getModel()
 
     const recordsText = records.map((r: any, i: number) => {
       const meds = r.medicines?.map((m: any) => `${m.name} (${m.dosage || 'dosage unknown'}, ${m.frequency || 'frequency unknown'})`).join(', ') || 'none listed'
@@ -37,7 +35,7 @@ Write a warm, clear summary of their recent health journey. Return ONLY valid JS
   "disclaimer": "This is a summary of your records, not medical advice. Always consult your doctor for guidance."
 }`
 
-    const result = await withRetry(() => model.generateContent(prompt))
+    const result = await generate((model) => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)

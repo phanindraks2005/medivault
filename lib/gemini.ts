@@ -1,4 +1,5 @@
 import {
+  GenerativeModel,
   GoogleGenerativeAI,
   GoogleGenerativeAIAbortError,
   GoogleGenerativeAIFetchError,
@@ -7,26 +8,32 @@ import {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
+// Pinned rather than gemini-flash-latest: the alias moves to each new release,
+// which on this key has hit quota limits and capacity errors for hours at a time.
+const PRIMARY_MODEL = 'gemini-3.5-flash'
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite'
+
 // When Gemini is overloaded a request can hang for minutes. Better to give up
 // and let the user try again than leave them looking at a spinner.
 const TIMEOUT_MS = 25_000
-
-export function getModel(params: Omit<ModelParams, 'model'> = {}) {
-  return genAI.getGenerativeModel({ model: 'gemini-flash-latest', ...params }, { timeout: TIMEOUT_MS })
-}
 
 function isBusy(err: unknown) {
   return err instanceof GoogleGenerativeAIFetchError && (err.status === 503 || err.status === 429)
 }
 
-// 503s and 429s are usually short spikes, so one retry often gets through.
-export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+// Runs the request on the primary model, and once more on the fallback if the
+// primary is overloaded or out of quota. Busy errors are per model, so the
+// fallback usually still has room.
+export async function generate<T>(
+  run: (model: GenerativeModel) => Promise<T>,
+  params: Omit<ModelParams, 'model'> = {}
+): Promise<T> {
   try {
-    return await fn()
+    return await run(genAI.getGenerativeModel({ model: PRIMARY_MODEL, ...params }, { timeout: TIMEOUT_MS }))
   } catch (err) {
     if (!isBusy(err)) throw err
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    return fn()
+    console.warn(`${PRIMARY_MODEL} unavailable, using ${FALLBACK_MODEL}`)
+    return run(genAI.getGenerativeModel({ model: FALLBACK_MODEL, ...params }, { timeout: TIMEOUT_MS }))
   }
 }
 

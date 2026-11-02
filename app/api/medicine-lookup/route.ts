@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -15,8 +15,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing medicine name' }, { status: 400 })
     }
 
-    const model = getModel()
-
     const prompt = `You are a medicine information assistant for an Indian audience. Give info about the medicine "${medicineName}". Return ONLY valid JSON, no markdown, no preamble:
 
 {
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
 
 If "${medicineName}" is not a recognizable medicine, return {"error": "Medicine not found. Please check the spelling or try another name."}`
 
-    const result = await withRetry(() => model.generateContent(prompt))
+    const result = await generate((model) => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)

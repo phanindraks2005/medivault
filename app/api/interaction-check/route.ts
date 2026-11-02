@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -14,8 +14,6 @@ export async function POST(req: NextRequest) {
     if (!medicines || !Array.isArray(medicines) || medicines.length < 2) {
       return NextResponse.json({ error: 'Need at least 2 medicines to check' }, { status: 400 })
     }
-
-    const model = getModel()
 
     const prompt = `You are a cautious medication safety assistant. Check the following list of medicines for potential interactions with each other:
 
@@ -38,7 +36,7 @@ Return ONLY valid JSON, no markdown, no preamble:
 
 If no significant interactions are found, return an empty interactions array and overall_risk "none".`
 
-    const result = await withRetry(() => model.generateContent(prompt))
+    const result = await generate((model) => model.generateContent(prompt))
     const responseText = result.response.text()
     const cleaned = responseText.replace(/```json|```/g, '').trim()
     const data = JSON.parse(cleaned)

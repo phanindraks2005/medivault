@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getModel, withRetry, aiError } from '@/lib/gemini'
+import { generate, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -56,8 +56,6 @@ Keep responses conversational, warm, and concise — this is a chat, not a repor
 FAMILY HEALTH DATA:
 ${contextBlock || 'No family members or records added yet.'}`
 
-    const model = getModel({ systemInstruction: systemPrompt })
-
     const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
@@ -65,8 +63,10 @@ ${contextBlock || 'No family members or records added yet.'}`
 
     const lastMessage = messages[messages.length - 1]
 
-    const chat = model.startChat({ history })
-    const result = await withRetry(() => chat.sendMessage(lastMessage.content))
+    const result = await generate(
+      (model) => model.startChat({ history }).sendMessage(lastMessage.content),
+      { systemInstruction: systemPrompt }
+    )
     const responseText = result.response.text()
 
     return NextResponse.json({ reply: responseText })
