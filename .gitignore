@@ -45,3 +45,6 @@ next-env.d.ts
 /uploads/
 /data/
 /medical-records/
+
+# local notes for the editor
+CLAUDE.md
