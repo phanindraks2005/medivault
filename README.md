@@ -43,13 +43,19 @@ The app runs at http://localhost:3000.
 | Variable | Description |
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key, used by the browser client |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key, used only in server routes. Never expose it to the client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key (`sb_publishable_...`) or legacy anon key, used by the browser client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret key (`sb_secret_...`) or legacy service role key, used only in server routes. Never expose it to the client |
 | `GEMINI_API_KEY` | Google AI Studio API key |
 
 ### Database
 
-Tables: `family_members`, `medical_records`, `vaccinations`, `chat_history`, each with a `user_id` column tied to `auth.users`. Files are stored in a Storage bucket named `medical-records`.
+Run [`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor of a new project. It creates the tables (`family_members`, `medical_records`, `vaccinations`, `chat_history`, each with a `user_id` tied to `auth.users`), turns on row level security with per-user policies, and sets up the private `medical-records` Storage bucket (10 MB, images and PDFs) with policies that keep each user's files in their own folder. The script is safe to run again.
+
+For local testing you can turn off email confirmation under Authentication → Sign In / Providers → Email.
+
+### AI models
+
+All Gemini calls go through `lib/gemini.ts`. It uses `gemini-3.5-flash` and falls back to `gemini-3.5-flash-lite` when the first model is busy or out of quota, with a 25 second timeout. On the free tier each model allows about 20 requests a day, so heavy testing can hit the limit; the app then shows a "busy, try again" message instead of failing silently. A record whose extraction failed can be read again from its page with **Try again**.
 
 ## Disclaimer
 
