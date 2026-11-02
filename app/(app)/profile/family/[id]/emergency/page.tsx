@@ -1,171 +1,178 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
-import Link from 'next/link'
+import { use, useCallback, useEffect, useState } from 'react'
+import { Phone, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useFamily } from '@/lib/family-context'
+import { ageFrom, allergyList } from '@/lib/family'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import MemberAvatar from '@/components/app/MemberAvatar'
+import { ErrorLine, Page, PageHeader } from '@/components/app/kit'
+import type { Medicine } from '@/components/dashboard/types'
+import { cn } from '@/lib/utils'
 
-function initials(name: string) {
-  return name?.trim()?.[0]?.toUpperCase() || '?'
+type Card = {
+  name: string
+  dob: string | null
+  gender: string | null
+  blood_group: string | null
+  allergies: string | null
+  known_conditions: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
 }
 
+// Large type for older eyes and for someone reading it in a hurry; prints on one page.
 export default function EmergencyCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-
-  const [member, setMember] = useState<any>(null)
+  const { colors } = useFamily()
+  const [card, setCard] = useState<Card | null>(null)
   const [medicines, setMedicines] = useState<string[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: memberData } = await supabase.from('family_members').select('*').eq('id', id).single()
-      setMember(memberData)
-
-      const { data: records } = await supabase
-        .from('medical_records')
-        .select('extracted_data')
-        .eq('family_member_id', id)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      const meds = new Set<string>()
-      records?.forEach((r) => {
-        r.extracted_data?.medicines?.forEach((m: any) => meds.add(m.name))
-      })
-      setMedicines(Array.from(meds))
-    }
-    load()
+  const load = useCallback(async () => {
+    const [m, r] = await Promise.all([
+      supabase
+        .from('family_members')
+        .select('name, dob, gender, blood_group, allergies, known_conditions, emergency_contact_name, emergency_contact_phone')
+        .eq('id', id)
+        .maybeSingle(),
+      supabase.from('medical_records').select('record_date, created_at, extracted_data').eq('family_member_id', id),
+    ])
+    if (m.error || r.error || !m.data) return setStatus('error')
+    // Each medicine once, newest prescription first.
+    const rows = (r.data || []).sort((a, b) => (b.record_date || b.created_at).localeCompare(a.record_date || a.created_at))
+    const seen = new Map<string, string>()
+    for (const row of rows)
+      for (const med of (row.extracted_data?.medicines || []) as Medicine[]) {
+        const key = med?.name?.toLowerCase()
+        if (key && !seen.has(key)) seen.set(key, [med.name, med.dosage].filter(Boolean).join(' '))
+      }
+    setCard(m.data)
+    setMedicines([...seen.values()])
+    setStatus('ready')
   }, [id])
 
-  if (!member) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-5 py-6">
-          <p className="text-sm text-text-secondary">Loading…</p>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
 
-  const allergyList = member.allergies
-    ? member.allergies.split(',').map((a: string) => a.trim()).filter(Boolean)
-    : []
-  const conditionList = member.known_conditions
-    ? member.known_conditions.split(',').map((c: string) => c.trim()).filter(Boolean)
-    : []
+  const first = card?.name.split(' ')[0] || 'Back'
+  const allergies = allergyList(card?.allergies)
+  const conditions = allergyList(card?.known_conditions)
+  const age = ageFrom(card?.dob)
+  const color = colors[id] || '#5b6b7f'
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto px-5 py-6">
-        <Link href={`/profile/family/${id}`} className="text-sm text-text-secondary hover:text-foreground transition mb-6 inline-block print:hidden">
-          <i className="ti ti-arrow-left" style={{ marginRight: 4 }}></i>Back
-        </Link>
-
-        <div className="bg-card rounded-2xl border-2 border-red-300 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <i className="ti ti-alert-triangle" style={{ fontSize: 20, color: '#993C1D' }}></i>
-            <p className="text-sm font-medium" style={{ color: '#993C1D' }}>Emergency information</p>
-          </div>
-
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full bg-sage flex items-center justify-center text-white text-2xl font-medium">
-              {initials(member.name)}
-            </div>
-            <div>
-              <p className="text-xl font-medium text-foreground">{member.name}</p>
-              <p className="text-sm text-text-secondary capitalize">{member.relation} {member.dob && `· DOB ${member.dob}`}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="bg-sage-light rounded-2xl p-4">
-              <p className="text-xs text-text-secondary">Blood group</p>
-              <p className="text-lg font-medium text-foreground mt-1">{member.blood_group || 'Not recorded'}</p>
-            </div>
-            <div className="bg-taupe-light rounded-2xl p-4">
-              <p className="text-xs text-text-secondary">Gender</p>
-              <p className="text-lg font-medium text-foreground mt-1 capitalize">{member.gender || 'Not recorded'}</p>
-            </div>
-          </div>
-
-          {(member.height_cm || member.weight_kg) && (
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="bg-card border border-border rounded-2xl p-4">
-                <p className="text-xs text-text-secondary">Height</p>
-                <p className="text-lg font-medium text-foreground mt-1">{member.height_cm ? `${member.height_cm} cm` : 'Not recorded'}</p>
-              </div>
-              <div className="bg-card border border-border rounded-2xl p-4">
-                <p className="text-xs text-text-secondary">Weight</p>
-                <p className="text-lg font-medium text-foreground mt-1">{member.weight_kg ? `${member.weight_kg} kg` : 'Not recorded'}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-red-50 rounded-2xl p-4 mb-3">
-            <p className="text-xs" style={{ color: '#993C1D' }}>Allergies</p>
-            {allergyList.length > 0 ? (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {allergyList.map((a: string, i: number) => (
-                  <span key={i} className="text-sm font-medium px-3 py-1 rounded-full bg-red-100" style={{ color: '#791F1F' }}>
-                    {a}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-foreground mt-1">None recorded</p>
-            )}
-          </div>
-
-          <div className="bg-taupe-light rounded-2xl p-4 mb-3">
-            <p className="text-xs text-text-secondary">Known conditions</p>
-            {conditionList.length > 0 ? (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {conditionList.map((c: string, i: number) => (
-                  <span key={i} className="text-sm font-medium px-3 py-1 rounded-full bg-card">
-                    {c}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-foreground mt-1">None recorded</p>
-            )}
-          </div>
-
-          <div className="bg-card border border-border rounded-2xl p-4 mb-3">
-            <p className="text-xs text-text-secondary">Current / recent medicines</p>
-            {medicines.length > 0 ? (
-              <ul className="mt-2 flex flex-col gap-1">
-                {medicines.map((m, i) => (
-                  <li key={i} className="text-sm text-foreground">{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-foreground mt-1">None recorded</p>
-            )}
-          </div>
-
-          {(member.emergency_contact_name || member.emergency_contact_phone) && (
-            <div className="bg-sage-light rounded-2xl p-4">
-              <p className="text-xs text-text-secondary">Emergency contact</p>
-              <p className="text-sm font-medium text-foreground mt-1">{member.emergency_contact_name || 'Not named'}</p>
-              {member.emergency_contact_phone && (
-                <a href={`tel:${member.emergency_contact_phone}`} className="text-sm mt-1 inline-block" style={{ color: '#0F6E56' }}>
-                  <i className="ti ti-phone" style={{ marginRight: 4 }}></i>{member.emergency_contact_phone}
-                </a>
-              )}
-            </div>
-          )}
-
-          <p className="text-xs text-text-muted mt-4 text-center">
-            Generated by MediVault · Not a substitute for professional medical advice
-          </p>
-        </div>
-
-        <button
-          onClick={() => window.print()}
-          className="w-full mt-4 px-4 py-2.5 rounded-xl bg-taupe text-white text-sm font-medium hover:opacity-90 transition print:hidden"
-        >
-          <i className="ti ti-printer" style={{ marginRight: 6 }}></i>Print / save as PDF
-        </button>
+    <Page className="print:p-0">
+      <div className="print:hidden">
+        <PageHeader
+          back={{ href: `/profile/family/${id}`, label: first }}
+          title="Emergency card"
+          sub="Show it on this screen or print it for a wallet or the fridge door."
+          actions={
+            <Button onClick={() => window.print()} disabled={status !== 'ready'}>
+              <Printer aria-hidden="true" /> Print or save as PDF
+            </Button>
+          }
+        />
       </div>
-    </div>
+
+      {status === 'error' && <ErrorLine onRetry={load}>Couldn&apos;t load this card. Check your connection and try again.</ErrorLine>}
+
+      <article
+        aria-label={card ? `Emergency information for ${card.name}` : 'Emergency information'}
+        className="mx-auto mt-10 max-w-[680px] overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-lift)] print:mt-0 print:max-w-none print:rounded-none print:shadow-none"
+      >
+        <header className="bg-navy px-6 pb-6 pt-6 text-white sm:px-8 print:bg-white print:text-ink" style={{ boxShadow: `inset 0 6px 0 ${color}` }}>
+          <p className="text-[15px] font-medium text-white/75 print:text-ink-2">Emergency information</p>
+          <div className="mt-3 flex items-center gap-4">
+            {card ? <MemberAvatar name={card.name} color={color} size={56} ring /> : <Skeleton className="size-14 rounded-full bg-white/15" />}
+            <div className="min-w-0">
+              <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.02em] sm:text-[34px]">{card ? card.name : <span className="inline-block h-9 w-56 animate-pulse rounded-md bg-white/15" />}</h2>
+              {card && <p className="mt-0.5 text-[17px] text-white/80 print:text-ink-2 num">{[age !== null ? `${age} years` : null, card.gender].filter(Boolean).join(' · ') || ' '}</p>}
+            </div>
+          </div>
+        </header>
+
+        <dl className="divide-y divide-line px-6 sm:px-8">
+          <div className="flex items-end justify-between gap-4 py-6">
+            <dt className="text-[17px] text-ink-2">Blood group</dt>
+            <dd className={cn('font-display text-[72px] font-bold leading-[0.8] num sm:text-[88px]', !card?.blood_group && 'text-line-strong')}>
+              {status === 'loading' ? <Skeleton className="h-16 w-24" /> : card?.blood_group || '—'}
+            </dd>
+          </div>
+
+          <div className="py-6">
+            <dt className="text-[17px] text-ink-2">Allergies</dt>
+            <dd className="mt-3">
+              {allergies.length ? (
+                <ul className="flex flex-wrap gap-2">
+                  {allergies.map((a) => (
+                    <li key={a} className="rounded-lg bg-red-soft px-3.5 py-2 text-[20px] font-semibold text-red-ink print:border print:border-red">
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[20px]">{status === 'ready' ? 'None known' : ''}</p>
+              )}
+            </dd>
+          </div>
+
+          <div className="py-6">
+            <dt className="text-[17px] text-ink-2">Current medicines</dt>
+            <dd className="mt-2 text-[20px] leading-relaxed">
+              {medicines.length ? (
+                <ul className="space-y-1">
+                  {medicines.map((m) => (
+                    <li key={m} className="num">
+                      {m}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                status === 'ready' && 'None on record'
+              )}
+            </dd>
+          </div>
+
+          {conditions.length > 0 && (
+            <div className="py-6">
+              <dt className="text-[17px] text-ink-2">Known conditions</dt>
+              <dd className="mt-2 text-[20px]">{conditions.join(', ')}</dd>
+            </div>
+          )}
+
+          <div className="py-6">
+            <dt className="text-[17px] text-ink-2">Who to call</dt>
+            <dd className="mt-2">
+              {card?.emergency_contact_name || card?.emergency_contact_phone ? (
+                <>
+                  <p className="text-[22px] font-semibold">{card.emergency_contact_name}</p>
+                  {card.emergency_contact_phone && (
+                    <a
+                      href={`tel:${card.emergency_contact_phone.replace(/\s+/g, '')}`}
+                      className="mt-2 inline-flex min-h-12 items-center gap-2.5 rounded-full bg-band px-5 text-[20px] font-medium text-white hover:bg-band-deep print:bg-white print:px-0 print:text-ink num"
+                    >
+                      <Phone className="size-5 print:hidden" aria-hidden="true" />
+                      {card.emergency_contact_phone}
+                    </a>
+                  )}
+                </>
+              ) : (
+                status === 'ready' && <p className="text-[20px]">Not added yet</p>
+              )}
+            </dd>
+          </div>
+        </dl>
+
+        <footer className="bg-canvas px-6 py-4 text-[14px] text-ink-3 sm:px-8 print:bg-white">
+          From MediVault, {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}. Medicines are as read from prescriptions; confirm with a doctor.
+        </footer>
+      </article>
+    </Page>
   )
 }

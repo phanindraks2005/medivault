@@ -59,9 +59,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const household = demo ? 'Sharma family · sample' : familyName(self?.name)
 
   return (
-    <div className="min-h-dvh bg-canvas">
+    <div className="min-h-dvh bg-canvas print:bg-white">
       {/* Desktop sidebar, on the same ground as the frame */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] flex-col px-3 pb-3 pt-5 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] flex-col px-3 pb-3 pt-5 lg:flex print:hidden">
         <div className="px-3">
           <Link href={demo ? '/' : '/dashboard'} aria-label="MediVault home" className="inline-flex rounded-full">
             <Logo size={28} />
@@ -164,7 +164,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Phone and tablet top bar */}
-      <header className="sticky top-0 z-30 flex h-12 items-center justify-between bg-canvas px-4 shadow-[0_1px_0_var(--line)] lg:hidden">
+      <header className="sticky top-0 z-30 flex h-12 items-center justify-between bg-canvas px-4 shadow-[0_1px_0_var(--line)] lg:hidden print:hidden">
         <Link href={demo ? '/' : '/dashboard'} aria-label="MediVault home" className="rounded-full">
           <Logo size={26} />
         </Link>
@@ -183,8 +183,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* The white sheet */}
-      <div className="lg:py-2 lg:pl-[240px] lg:pr-2">
-        <div className="min-h-[calc(100dvh-48px)] bg-surface lg:min-h-[calc(100dvh-16px)] lg:rounded-2xl lg:border lg:border-line">
+      <div className="lg:py-2 lg:pl-[240px] lg:pr-2 print:p-0">
+        <div className="min-h-[calc(100dvh-48px)] bg-surface lg:min-h-[calc(100dvh-16px)] lg:rounded-2xl lg:border lg:border-line print:border-0">
           {demo && (
             <div className="px-4 pt-4 sm:px-6">
               <p className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-2 rounded-lg bg-due-soft px-4 py-2.5 text-[14px] text-due-ink">
@@ -202,7 +202,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Phone bottom navigation */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 bg-surface print:hidden pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] lg:hidden"
       >
         {NAV.map((item) => {
           const active = isActive(item.href)
