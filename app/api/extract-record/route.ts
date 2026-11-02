@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getModel, withRetry, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +19,7 @@ export async function POST(req: NextRequest) {
     // one supplied by the client.
     const { data: record } = await supabaseAdmin
       .from('medical_records')
-      .select('file_url, doctor_name')
+      .select('file_url, doctor_name, extracted_data')
       .eq('id', recordId)
       .eq('user_id', user.id)
       .single()
@@ -30,13 +28,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    // Without a marker the record page would say "Still processing" forever.
+    // Only set it when there's nothing good to lose, so a failed retry doesn't
+    // wipe details that were already extracted.
+    const markFailed = async () => {
+      if (record.extracted_data && !record.extracted_data.error) return
+      await supabaseAdmin
+        .from('medical_records')
+        .update({ extracted_data: { error: 'extraction_failed' } })
+        .eq('id', recordId)
+        .eq('user_id', user.id)
+    }
+
     // Download the file from Supabase Storage
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('medical-records')
       .download(record.file_url)
 
     if (downloadError || !fileData) {
-      return NextResponse.json({ error: 'Failed to download file' }, { status: 500 })
+      await markFailed()
+      return NextResponse.json({ error: "Couldn't open this file. Please try again." }, { status: 500 })
     }
 
     // Convert file to base64
@@ -45,7 +56,7 @@ export async function POST(req: NextRequest) {
     const mimeType = fileData.type || 'image/jpeg'
 
     // Send to Gemini for extraction
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+    const model = getModel()
 
     const prompt = `You are analyzing a medical prescription or lab report image. Extract the following information and return ONLY valid JSON, no markdown, no preamble:
 
@@ -60,14 +71,22 @@ export async function POST(req: NextRequest) {
 
 If this doesn't look like a prescription or medical report, return {"error": "not a medical document"}.`
 
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64, mimeType } },
-    ])
+    let extracted
+    try {
+      const result = await withRetry(() => model.generateContent([
+        prompt,
+        { inlineData: { data: base64, mimeType } },
+      ]))
 
-    const responseText = result.response.text()
-    const cleaned = responseText.replace(/```json|```/g, '').trim()
-    const extracted = JSON.parse(cleaned)
+      const responseText = result.response.text()
+      const cleaned = responseText.replace(/```json|```/g, '').trim()
+      extracted = JSON.parse(cleaned)
+    } catch (err) {
+      console.error('OCR extraction error:', err)
+      await markFailed()
+      const { message, status } = aiError(err, "Couldn't read this file. Please try again.")
+      return NextResponse.json({ error: message }, { status })
+    }
 
     // Save extracted data back to the record
     const { error: updateError } = await supabaseAdmin
@@ -81,12 +100,13 @@ If this doesn't look like a prescription or medical report, return {"error": "no
       .eq('user_id', user.id)
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      console.error('Saving extracted data failed:', updateError)
+      return NextResponse.json({ error: "Couldn't save the details. Please try again." }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, extracted })
-  } catch (err: any) {
+  } catch (err) {
     console.error('OCR extraction error:', err)
-    return NextResponse.json({ error: err.message || 'Extraction failed' }, { status: 500 })
+    return NextResponse.json({ error: "Couldn't read this file. Please try again." }, { status: 500 })
   }
 }

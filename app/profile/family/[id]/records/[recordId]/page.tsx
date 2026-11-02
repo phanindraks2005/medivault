@@ -3,9 +3,13 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, authHeaders } from '@/lib/supabase'
 
 type Medicine = { name: string; dosage?: string; frequency?: string }
+
+// Extraction normally finishes within a minute. Past this, a record still
+// without details almost certainly had its request lost, so offer a retry.
+const STUCK_AFTER_MS = 2 * 60 * 1000
 
 export default function RecordDetailPage({ params }: { params: Promise<{ id: string; recordId: string }> }) {
   const { id, recordId } = use(params)
@@ -14,6 +18,8 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
   const [record, setRecord] = useState<any>(null)
   const [member, setMember] = useState<any>(null)
   const [error, setError] = useState('')
+  const [loadedAt, setLoadedAt] = useState(0)
+  const [retrying, setRetrying] = useState(false)
 
   const [editMode, setEditMode] = useState(false)
   const [editRecordType, setEditRecordType] = useState('prescription')
@@ -30,6 +36,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
       .single()
     if (recordError) setError(recordError.message)
     else setRecord(recordData)
+    setLoadedAt(Date.now())
 
     const { data: memberData } = await supabase
       .from('family_members')
@@ -37,6 +44,24 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
       .eq('id', id)
       .single()
     setMember(memberData)
+  }
+
+  const handleRetryExtraction = async () => {
+    setRetrying(true)
+    setError('')
+    try {
+      const res = await fetch('/api/extract-record', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ recordId }),
+      })
+      const data = await res.json()
+      if (data.error) setError(data.error)
+    } catch {
+      setError('Something went wrong, try again')
+    }
+    await load()
+    setRetrying(false)
   }
 
   useEffect(() => {
@@ -114,6 +139,17 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
   }
 
   const extracted = record.extracted_data
+  const isStuck = !extracted && loadedAt - new Date(record.created_at).getTime() > STUCK_AFTER_MS
+
+  const retryButton = (
+    <button
+      onClick={handleRetryExtraction}
+      disabled={retrying}
+      className="shrink-0 text-sm px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-background transition disabled:opacity-50"
+    >
+      {retrying ? 'Reading…' : 'Try again'}
+    </button>
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -146,14 +182,24 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {!extracted && (
-              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary">
-                Still processing this record — check back in a moment.
+              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary flex items-center justify-between gap-3">
+                <span>
+                  {isStuck
+                    ? "Details from this file haven't come through yet."
+                    : 'Still processing this record — check back in a moment.'}
+                </span>
+                {isStuck && retryButton}
               </div>
             )}
 
             {extracted?.error && (
-              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary">
-                Couldn't extract details from this file automatically.
+              <div className="bg-card rounded-2xl border border-border p-4 text-sm text-text-secondary flex items-center justify-between gap-3">
+                <span>
+                  {extracted.error === 'not a medical document'
+                    ? "This doesn't look like a prescription or report, so no details were pulled out."
+                    : "Couldn't read the details from this file."}
+                </span>
+                {retryButton}
               </div>
             )}
 
