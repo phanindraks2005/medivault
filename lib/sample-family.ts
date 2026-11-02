@@ -1,5 +1,6 @@
 import type { Member } from '@/lib/family-context'
 import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
+import { memberColors } from '@/lib/family'
 
 // A made-up family for the public demo and the landing page. Dates are built
 // relative to today so the calendar always has something on it.
@@ -51,9 +52,11 @@ export const sampleRecords: MedicalRecord[] = [
   },
   {
     id: 'r4', family_member_id: 'arjun', record_type: 'prescription', record_date: day(-41), created_at: at(-40),
-    doctor_name: 'Dr. Sameer Khan', hospital_name: 'Apollo Clinic',
+    doctor_name: 'Dr. Sameer Khan', hospital_name: 'Lakeside Clinic',
     extracted_data: { medicines: [{ name: 'Cetirizine', dosage: '10 mg', frequency: 'At night for 5 days' }] },
   },
 ]
 
 export const sampleFamily = { email: 'arjun@example.com', members: sampleMembers }
+
+export const sampleColors = memberColors(sampleMembers)

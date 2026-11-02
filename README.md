@@ -4,7 +4,7 @@ A health records app for families. Upload a prescription or lab report, and Medi
 
 ## Features
 
-- **Try it without an account.** `/demo` opens the real dashboard with a sample family; the landing page links to it.
+- **Try it without an account.** `/demo` opens the real dashboard with a sample family. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
 - **Calendar dashboard.** A month view of due and overdue vaccinations and the dates prescriptions were written, each family member in their own colour. Red is kept for overdue items and allergies.
 - **Family profiles.** One account manages records for every family member: blood group, allergies, known conditions.
 - **Record extraction.** Upload a photo or scan of a prescription or report. Gemini extracts the doctor name, record date, medicines with dosage and frequency, and notes into structured data.
@@ -20,7 +20,9 @@ A health records app for families. Upload a prescription or lab report, and Medi
 - Next.js 16 (App Router), React 19, TypeScript
 - Supabase (Postgres, Auth, Storage)
 - Google Gemini API (`@google/generative-ai`)
-- Tailwind CSS 4, shadcn/ui (Base UI) and Magic UI components, Motion for animation, lucide icons
+- Tailwind CSS 4, shadcn/ui (Base UI) components, Motion for animation, lucide icons, Inter and Archivo (dates)
+
+Photographs on the landing page come from Wikimedia Commons and are credited in its footer (`public/photos/credits.json`).
 
 ## Security notes
 

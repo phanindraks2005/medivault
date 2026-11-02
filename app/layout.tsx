@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Hind } from "next/font/google";
+import { Archivo, Inter } from "next/font/google";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -9,10 +9,9 @@ const archivo = Archivo({
   axes: ["wdth"],
 });
 
-const hind = Hind({
-  variable: "--font-hind",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -25,12 +24,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b6b60",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${archivo.variable} ${hind.variable} h-full antialiased`}>
+    <html lang="en" className={`${archivo.variable} ${inter.variable} h-full antialiased`}>
       <head>
         <noscript>
           <style>{`[style^="opacity:0;"],[style="opacity:0"]{opacity:1!important;transform:none!important;filter:none!important}`}</style>

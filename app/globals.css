@@ -6,30 +6,36 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Primitives */
-  --teal-50: #e6f2f0;
-  --teal-100: #c9e5e0;
+  /* Primitives: Stripe's navy ink and cool greys, MediVault's teal. */
+  --teal-50: #e3f4f1;
+  --teal-100: #c4e8e1;
+  --teal-400: #12a594;
   --teal-600: #0b6b60;
   --teal-700: #08524a;
-  --teal-800: #063e38;
-  --stone-50: #f4f5f2;
-  --stone-100: #eceee9;
-  --stone-200: #e4e6e2;
-  --stone-300: #cfd3cd;
-  --ink-900: #14181b;
-  --ink-600: #4a5359;
-  --ink-500: #6b747a;
+  --navy-900: #0a2540;
+  --navy-800: #1a3a5c;
+  --slate-50: #f6f9fc;
+  --slate-100: #edf2f7;
+  --slate-200: #e3e8ee;
+  --slate-300: #c1ccd8;
+  --ink-900: #0d253d;
+  --ink-600: #425466;
+  --ink-500: #64748d;
 
-  /* Calendar roles */
-  --canvas: var(--stone-50);
+  /* Roles */
+  --canvas: var(--slate-50);
   --surface: #ffffff;
   --ink: var(--ink-900);
   --ink-2: var(--ink-600);
   --ink-3: var(--ink-500);
-  --line: var(--stone-200);
+  --line: var(--slate-200);
+  --line-strong: var(--slate-300);
   --band: var(--teal-600);
   --band-deep: var(--teal-700);
+  --band-bright: var(--teal-400);
   --band-soft: var(--teal-50);
+  --navy: var(--navy-900);
+  --navy-2: var(--navy-800);
 
   /* Red is kept for overdue dates and allergies, nothing else. */
   --red: #d8261c;
@@ -43,9 +49,10 @@
   --ok: #1f7a44;
   --ok-soft: #e8f5ec;
 
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(16 24 40 / 0.06), 0 14px 30px -8px rgb(16 24 40 / 0.16);
-  --shadow-float: 0 24px 48px -12px rgb(16 24 40 / 0.28);
+  /* Stripe's blue-tinted elevation. */
+  --shadow-card: 0 1px 3px rgb(0 55 112 / 0.08);
+  --shadow-lift: 0 8px 24px rgb(0 55 112 / 0.08), 0 2px 6px rgb(0 55 112 / 0.04);
+  --shadow-float: 0 30px 60px -12px rgb(50 50 93 / 0.25), 0 18px 36px -18px rgb(0 0 0 / 0.3);
 
   /* shadcn roles */
   --background: var(--canvas);
@@ -56,25 +63,25 @@
   --popover-foreground: var(--ink);
   --primary: var(--band);
   --primary-foreground: #ffffff;
-  --secondary: var(--stone-100);
+  --secondary: var(--slate-100);
   --secondary-foreground: var(--ink);
-  --muted: var(--stone-100);
+  --muted: var(--slate-100);
   --muted-foreground: var(--ink-3);
   --accent: var(--band-soft);
-  --accent-foreground: var(--teal-800);
+  --accent-foreground: var(--band-deep);
   --destructive: var(--red);
   --border: var(--line);
-  --input: var(--stone-300);
+  --input: var(--line-strong);
   --ring: var(--band);
   --radius: 0.75rem;
 
-  --sidebar: var(--band);
+  --sidebar: var(--navy);
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: var(--band);
-  --sidebar-accent: rgb(255 255 255 / 0.12);
+  --sidebar-primary-foreground: var(--navy);
+  --sidebar-accent: rgb(255 255 255 / 0.08);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgb(255 255 255 / 0.14);
+  --sidebar-border: rgb(255 255 255 / 0.1);
   --sidebar-ring: #ffffff;
 }
 
@@ -112,6 +119,10 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-band-bright: var(--band-bright);
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
   --color-band: var(--band);
   --color-band-deep: var(--band-deep);
   --color-band-soft: var(--band-soft);
@@ -126,9 +137,9 @@
 
   /* Old names, still used by pages that have not been redesigned yet. */
   --color-paper: var(--surface);
-  --color-panel: var(--stone-100);
+  --color-panel: var(--slate-100);
   --color-rule: var(--line);
-  --color-rule-soft: var(--stone-100);
+  --color-rule-soft: var(--slate-100);
   --color-band-hover: var(--band-deep);
   --color-band-ink: #ffffff;
   --color-ok-ink: var(--ok);
@@ -139,9 +150,9 @@
   --color-text-secondary: var(--ink-3);
   --color-text-muted: var(--ink-3);
 
-  --font-sans: var(--font-hind);
+  --font-sans: var(--font-inter);
   --font-display: var(--font-archivo);
-  --font-heading: var(--font-archivo);
+  --font-heading: var(--font-inter);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -164,9 +175,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-hind), system-ui, sans-serif;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
     font-size: 15px;
-    line-height: 1.55;
+    line-height: 1.5;
     caret-color: var(--band);
   }
   h1, h2, h3 {
@@ -193,9 +205,50 @@
   font-stretch: 75%;
 }
 
+/* Stripe's display voice: Inter light with tight tracking. */
 .font-heading {
-  font-family: var(--font-archivo), system-ui, sans-serif;
-  font-stretch: 92%;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+}
+
+/* Stripe's gradient mesh in MediVault colours: soft blobs drifting slowly.
+   No red or pink stop: red means overdue. */
+.mesh {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #e9fbf7;
+}
+.mesh::before,
+.mesh::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  filter: blur(48px);
+  will-change: transform;
+}
+.mesh::before {
+  background:
+    radial-gradient(38% 42% at 18% 22%, #12a594 0%, transparent 70%),
+    radial-gradient(34% 38% at 78% 18%, #8fd3ff 0%, transparent 70%),
+    radial-gradient(36% 40% at 62% 72%, #6ee7d6 0%, transparent 70%);
+  animation: mesh-a 28s ease-in-out infinite alternate;
+}
+.mesh::after {
+  background:
+    radial-gradient(30% 34% at 30% 80%, #ffd27a 0%, transparent 70%),
+    radial-gradient(28% 30% at 10% 40%, #0b6b60 0%, transparent 70%),
+    radial-gradient(26% 30% at 50% 40%, #c9f2e6 0%, transparent 70%);
+  opacity: 0.85;
+  animation: mesh-b 36s ease-in-out infinite alternate;
+}
+@keyframes mesh-a {
+  to { transform: translate3d(6%, 4%, 0) rotate(8deg) scale(1.08); }
+}
+@keyframes mesh-b {
+  to { transform: translate3d(-7%, -5%, 0) rotate(-10deg) scale(1.05); }
 }
 
 .markdown-body p {

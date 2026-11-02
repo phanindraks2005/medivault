@@ -1,36 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import {
-  ArrowRight,
-  BellRing,
-  Droplet,
-  Database,
-  FileLock2,
-  FileText,
-  KeyRound,
-  MessageCircle,
-  Palette,
-  Phone,
-  Pill,
-  ScanText,
-  ShieldCheck,
-  Siren,
-  Syringe,
-  TriangleAlert,
-  Upload,
-  UserPlus,
-} from 'lucide-react'
-import LandingNav from '@/components/landing/LandingNav'
-import HeroCards from '@/components/landing/HeroCards'
-import ProductMockup from '@/components/landing/ProductMockup'
-import { DocChatPreview, EmergencyCardPreview } from '@/components/landing/Showcase'
-import { BlurFade } from '@/components/ui/blur-fade'
-import { DotPattern } from '@/components/ui/dot-pattern'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import Logo from '@/components/Logo'
-import MemberAvatar from '@/components/app/MemberAvatar'
+import { Stage, StageProvider } from '@/components/landing/Stage'
+import { FamilyScene, PolicyScene, PrescriptionScene } from '@/components/landing/scenes'
+import { AddMemberDialog, LandingNav, MemberTabs, Reveal, Wordmark } from '@/components/landing/interactive'
+import { CalendarCrop, ChatCrop, InteractionCrop, ReadCrop, RedCrop, VaccineCrop } from '@/components/landing/crops'
+import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
   title: { absolute: "MediVault · Your family's health, on one calendar" },
@@ -38,377 +15,339 @@ export const metadata: Metadata = {
 
 const GITHUB = 'https://github.com/phanindraks2005/medivault'
 
+const FEATURES = [
+  {
+    title: 'Reads the prescription for you',
+    stage: 'features',
+    crop: <ReadCrop />,
+    lines: [
+      'Photo or PDF, up to 10 MB',
+      'The doctor and the clinic',
+      'The date the doctor wrote it, not the upload date',
+      'Every medicine with its dose and timing',
+      'Anything it misreads, you can correct',
+    ],
+  },
+  {
+    title: 'One calendar for everyone',
+    stage: 'features',
+    crop: <CalendarCrop />,
+    lines: [
+      'Each person keeps one colour on every screen',
+      'Prescriptions sit on the day they were written',
+      'Vaccinations sit on the day they fall due',
+      'A glance tells you whose day it is',
+    ],
+  },
+  {
+    title: 'Red means act now',
+    stage: 'features',
+    crop: <RedCrop />,
+    lines: ['Overdue doses', 'Allergies, on every screen they matter', 'Marigold for anything due in 30 days', 'Nothing else is ever red'],
+  },
+  {
+    title: 'Doc answers from your records',
+    stage: 'doc',
+    crop: <ChatCrop />,
+    lines: [
+      'Ask in plain words: “What is Dad taking?”',
+      'Answers come from the family’s own prescriptions',
+      'It knows each person’s allergies',
+      'For anything serious, it sends you to a doctor',
+    ],
+  },
+  {
+    title: 'Vaccinations with due dates',
+    stage: 'vax',
+    crop: <VaccineCrop />,
+    lines: ['Log each dose and when the next is due', 'Children’s schedules and adult boosters', 'Due-soon and overdue land on the calendar'],
+  },
+  {
+    title: 'Checks before anyone takes it',
+    stage: 'checks',
+    crop: <InteractionCrop />,
+    lines: [
+      'Current medicines checked against each other',
+      'Or against a new one the chemist suggests',
+      'A short visit summary for the next appointment',
+      'Plain-English notes on the doctor’s jargon',
+    ],
+  },
+]
+
+const SLIP = [
+  {
+    when: 'Sunday evening',
+    rows: [
+      ['Add yourself: blood group, allergies', '2 min'],
+      ['Add parents, partner and children', '5 min'],
+    ],
+  },
+  {
+    when: 'Monday, at the clinic',
+    rows: [
+      ['Photograph the prescription', '10 sec'],
+      ['MediVault reads it and files it', '15 sec'],
+    ],
+  },
+  {
+    when: 'Every day after',
+    rows: [
+      ['See what is due on the calendar', 'at a glance'],
+      ['Ask Doc about anyone’s medicines', 'any time'],
+    ],
+  },
+]
+
+const PRIVACY = [
+  ['Row-level security', 'Every table returns only the rows the signed-in account owns. Another account gets nothing back.'],
+  ['Private file storage', 'Uploads go to a private bucket, in a folder only your account can open. There are no public links.'],
+  ['Checked on the server', 'Every AI request verifies your login first and only touches records your account owns.'],
+  ['Only photos and PDFs', 'Files are limited to images and PDFs up to 10 MB, enforced by the storage bucket itself.'],
+]
+
+const H2 = 'font-heading text-[clamp(36px,3.6vw,54px)] leading-[1.04] tracking-[-0.035em]'
+
 export default function Landing() {
   return (
-    <div className="bg-canvas text-ink">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
-        Skip to content
-      </a>
-      <LandingNav />
+    <StageProvider>
+      <div className="bg-surface text-ink">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-surface focus:px-4 focus:py-2 focus:shadow-[var(--shadow-lift)]"
+        >
+          Skip to content
+        </a>
 
-      <main id="main">
-        {/* Hero */}
-        <section className="relative overflow-hidden pt-28 md:pt-36">
-          <div className="mx-auto grid max-w-[1200px] items-center gap-14 px-5 md:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10">
-            <div>
-              <BlurFade delay={0.05}>
-                <h1 className="font-heading text-[44px] font-extrabold leading-[1.02] tracking-[-0.025em] sm:text-[58px] lg:text-[68px]">
-                  Your family&apos;s health, on one calendar
-                </h1>
-              </BlurFade>
-              <BlurFade delay={0.15}>
-                <p className="mt-6 max-w-[34rem] text-[18px] leading-relaxed text-ink-2 md:text-[20px]">
-                  Photograph a prescription and MediVault reads the doctor, the date and every medicine. Each person gets their own
-                  colour, allergies stay in red, and you always know what&apos;s due next.
+        <div className="relative lg:grid lg:grid-cols-[46fr_54fr]">
+          {/* The fixed stage (desktop) */}
+          <div className="relative z-0 hidden lg:block">
+            <div className="sticky top-0 h-svh py-5 pl-5">
+              <Stage />
+            </div>
+          </div>
+
+          <main id="main" className="relative z-10 min-w-0">
+            {/* Hero */}
+            <section data-stage="hero" className="relative flex min-h-svh flex-col px-4 pt-4 sm:px-8 lg:pl-[clamp(40px,4.5vw,72px)] lg:pr-10 lg:pt-8">
+              <div className="order-1"><LandingNav /></div>
+
+              <div aria-hidden="true" className="mesh order-2 mt-4 flex h-[56svh] min-h-[380px] items-center justify-center rounded-2xl px-5 lg:hidden">
+                <PrescriptionScene className="max-w-[400px] sm:max-w-[480px]" />
+              </div>
+
+              <div className="relative z-10 order-4 mt-6 max-w-[30rem] lg:order-3 lg:mx-auto lg:mt-[16svh]">
+                <p className="text-[22px] leading-[1.3] tracking-[-0.015em] text-ink lg:text-[28px]">
+                  Your family&apos;s prescriptions, read for you and dated on one calendar.
                 </p>
-              </BlurFade>
-              <BlurFade delay={0.25}>
-                <div className="mt-9 flex flex-wrap gap-3">
+                <p className="mt-4 text-[18px] leading-relaxed text-ink-2">
+                  Photograph a prescription and MediVault reads the doctor, the date and every medicine. Each person gets their own colour; allergies stay in red.
+                </p>
+                <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Button size="lg" nativeButton={false} render={<Link href="/demo" />}>
                     Try the demo <ArrowRight aria-hidden="true" />
                   </Button>
                   <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/auth?mode=signup" />}>
-                    Sign up
+                    Create an account
                   </Button>
                 </div>
-                <p className="mt-5 text-[14px] text-ink-3">Free to use · No card needed · The demo needs no account</p>
-              </BlurFade>
-            </div>
-            <HeroCards />
-          </div>
-
-          <div className="relative mt-20 md:mt-24">
-            <div
-              aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 top-[18%]"
-              style={{ background: 'linear-gradient(180deg, #0b6b60 0%, #08524a 100%)' }}
-            />
-            <DotPattern
-              width={22}
-              height={22}
-              cr={1.2}
-              className="absolute inset-x-0 bottom-0 top-[18%] h-[82%] text-white/[0.09] [mask-image:linear-gradient(to_bottom,white,transparent)]"
-            />
-            <div className="relative mx-auto max-w-[1200px] px-5 pb-20 md:px-8 md:pb-28">
-              <ProductMockup />
-              <p className="mt-6 text-center text-[14px] text-white/75">The real dashboard, running with a sample family</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section id="features" aria-labelledby="features-title" className="scroll-mt-20 py-24 md:py-32">
-          <div className="mx-auto max-w-[1200px] px-5 md:px-8">
-            <BlurFade inView>
-              <h2 id="features-title" className="max-w-[24ch] font-heading text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[48px]">
-                Everything a family organiser keeps track of
-              </h2>
-              <p className="mt-4 max-w-[46ch] text-[18px] text-ink-2">
-                One account for everyone you look after: parents, partner, children. No more digging through paper files at the pharmacy counter.
-              </p>
-            </BlurFade>
-
-            <div className="mt-14 grid gap-4 md:grid-cols-6">
-              <Feature className="md:col-span-4" icon={ScanText} title="Reads prescriptions for you" delay={0}>
-                Upload a photo or PDF. Gemini pulls out the doctor, the date the prescription was written, and each medicine with its dose and timing. You can
-                correct anything it gets wrong.
-                <div className="mt-6 grid gap-2 sm:grid-cols-3">
-                  {[
-                    ['Amlodipine', '5 mg · morning'],
-                    ['Metformin', '500 mg · twice'],
-                    ['Atorvastatin', '10 mg · night'],
-                  ].map(([n, d]) => (
-                    <div key={n} className="rounded-xl bg-canvas px-4 py-3">
-                      <p className="font-semibold">{n}</p>
-                      <p className="text-[13.5px] text-ink-3 num">{d}</p>
-                    </div>
-                  ))}
-                </div>
-              </Feature>
-              <Feature className="md:col-span-2" icon={Palette} title="One colour per person" delay={0.05}>
-                Every member keeps their colour on every screen, so a glance at the calendar tells you whose day it is.
-                <div className="mt-6 flex -space-x-2">
-                  {[
-                    ['Arjun', '#3b6fd8'],
-                    ['Ramesh', '#8c4fbf'],
-                    ['Sunita', '#2e8540'],
-                    ['Diya', '#0e7c9a'],
-                  ].map(([n, c]) => (
-                    <MemberAvatar key={n} name={n} color={c} size={40} className="ring-[3px] ring-white" />
-                  ))}
-                </div>
-              </Feature>
-              <Feature className="md:col-span-2" icon={TriangleAlert} title="Red means act now" delay={0.1}>
-                Red is kept for two things: overdue dates and allergies. Nothing else on the screen competes with them.
-                <div className="mt-6 flex flex-wrap gap-1.5">
-                  <Badge variant="overdue">Overdue 12 days</Badge>
-                  <Badge variant="overdue">Allergic: Penicillin</Badge>
-                  <Badge variant="due">In 6 days</Badge>
-                </div>
-              </Feature>
-              <Feature className="md:col-span-2" icon={MessageCircle} title="Doc answers from your records" delay={0.15}>
-                Ask “what is Mum taking for her thyroid?” and get an answer from her actual prescriptions, not a generic search.
-              </Feature>
-              <Feature className="md:col-span-2" icon={Syringe} title="Vaccinations with due dates" delay={0.2}>
-                Log each dose with its next due date. Due-soon items turn marigold, overdue ones turn red, and both land on the calendar.
-              </Feature>
-              <Feature className="md:col-span-3" icon={BellRing} title="Interaction checker" delay={0.05}>
-                Check a member&apos;s current medicines against each other, or against a new one the chemist suggests, before anyone takes it.
-              </Feature>
-              <Feature className="md:col-span-3" icon={FileText} title="Visit summaries" delay={0.1}>
-                Turn months of records into a short summary to read out at the next appointment.
-              </Feature>
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section id="how-it-works" aria-labelledby="how-title" className="scroll-mt-20 bg-surface py-24 md:py-32">
-          <div className="mx-auto grid max-w-[1200px] gap-12 px-5 md:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
-            <BlurFade inView>
-              <div className="lg:sticky lg:top-28">
-                <h2 id="how-title" className="font-heading text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[48px]">
-                  Set up in an evening
-                </h2>
-                <p className="mt-4 max-w-[38ch] text-[18px] leading-relaxed text-ink-2">
-                  Most families start with the paper file in the kitchen drawer. Ten minutes of photos and the whole history is dated and searchable.
-                </p>
-                <Image src="/illustrations/family.svg" alt="" width={420} height={323} className="mt-10 hidden w-full max-w-[400px] lg:block" />
+                <p className="mt-4 text-[14px] text-ink-3">The demo needs no account. It runs on a sample family.</p>
               </div>
-            </BlurFade>
-            <ol className="relative space-y-4 before:absolute before:bottom-10 before:left-[39px] before:top-10 before:w-0.5 before:bg-band/15">
-              {[
-                {
-                  icon: UserPlus,
-                  title: 'Add your family',
-                  body: 'Start with yourself, then add parents, partner and children with their blood group, allergies and conditions.',
-                },
-                {
-                  icon: Upload,
-                  title: 'Upload a prescription',
-                  body: 'Take a photo or upload a PDF. MediVault reads it in a few seconds and files it under the right person and date.',
-                },
-                {
-                  icon: ShieldCheck,
-                  title: 'Stay ahead of it',
-                  body: 'See what’s due and overdue on the calendar, ask Doc questions, and open the emergency card when it matters.',
-                },
-              ].map((s, i) => (
-                <BlurFade key={s.title} inView delay={i * 0.08}>
-                  <li className="relative flex gap-6 rounded-3xl bg-canvas p-6 md:p-7">
-                    <span className="relative z-10 grid size-[54px] shrink-0 place-items-center rounded-2xl bg-band font-display text-[30px] font-extrabold text-white shadow-[0_10px_24px_-10px_rgb(11_107_96/0.7)] num">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <h3 className="flex items-center gap-2 font-heading text-[22px] font-bold">
-                        <s.icon className="size-5 text-band" aria-hidden="true" /> {s.title}
-                      </h3>
-                      <p className="mt-2 text-[16px] leading-relaxed text-ink-2">{s.body}</p>
+
+              <Wordmark className="relative z-20 order-3 -mt-[4vw] whitespace-nowrap lg:order-4 text-[21vw] font-light leading-[0.8] tracking-[-0.04em] text-ink lg:-ml-[11vw] lg:mt-auto lg:pb-10 lg:text-[clamp(120px,12.6vw,230px)]" />
+            </section>
+
+            {/* Features */}
+            <section id="features" aria-labelledby="features-title" className="scroll-mt-6 px-4 pt-24 sm:px-8 lg:pl-[clamp(40px,4.5vw,72px)] lg:pr-10 lg:pt-40">
+              <Reveal>
+                <h2 data-stage="features" id="features-title" className={cn(H2, 'max-w-[14ch]')}>
+                  What it keeps track of
+                </h2>
+                <p className="mt-5 max-w-[44ch] text-[18px] leading-relaxed text-ink-2">
+                  One account for everyone you look after. Every piece shown here is the real app, running on a sample family.
+                </p>
+              </Reveal>
+              <div className="mt-16 space-y-20 lg:mt-24 lg:space-y-28">
+                {FEATURES.map((f, i) => (
+                  <Reveal key={f.title} stage={f.stage}>
+                    <h3 className="text-[28px] font-normal leading-tight tracking-[-0.02em]">{f.title}</h3>
+                    <div className={cn('mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8', i % 2 === 1 && 'sm:flex-row-reverse sm:justify-end')}>
+                      {f.crop}
+                      <ul className="space-y-3.5 text-[18px] leading-snug text-ink sm:flex-1">
+                        {f.lines.map((l) => (
+                          <li key={l} className="flex gap-3">
+                            <span aria-hidden="true" className="mt-[9px] size-1.5 shrink-0 rounded-full bg-band" />
+                            {l}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </li>
-                </BlurFade>
-              ))}
-            </ol>
-          </div>
-        </section>
+                  </Reveal>
+                ))}
+              </div>
+            </section>
 
-        {/* Showcase */}
-        <section aria-labelledby="showcase-title" className="py-24 md:py-32">
-          <div className="mx-auto max-w-[1200px] px-5 md:px-8">
-            <div className="grid items-center gap-14 lg:grid-cols-2">
-              <BlurFade inView>
-                <div>
-                  <span className="grid size-12 place-items-center rounded-2xl bg-red-soft text-red">
-                    <Siren className="size-6" aria-hidden="true" />
-                  </span>
-                  <h2 id="showcase-title" className="mt-6 font-heading text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[44px]">
-                    The card you show in an emergency
-                  </h2>
-                  <p className="mt-4 max-w-[44ch] text-[18px] leading-relaxed text-ink-2">
-                    Blood group, allergies, current medicines and who to call, set large enough to read in a hurry. Show it on your phone or print it for
-                    a parent&apos;s wallet.
-                  </p>
-                  <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-                    {[
-                      ['Blood group, in large type', Droplet],
-                      ['Allergies, in red', TriangleAlert],
-                      ['Medicines from the latest records', Pill],
-                      ['Who to call, one tap away', Phone],
-                    ].map(([label, Icon]) => {
-                      const I = Icon as typeof Pill
-                      return (
-                        <li key={label as string} className="flex items-center gap-3 rounded-2xl bg-surface p-4 shadow-card">
-                          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-red-soft text-red">
-                            <I className="size-[18px]" aria-hidden="true" />
-                          </span>
-                          <span className="text-[15px] font-medium">{label as string}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              </BlurFade>
-              <BlurFade inView delay={0.1}>
-                <EmergencyCardPreview />
-              </BlurFade>
-            </div>
-
-            <div className="mt-28 grid items-center gap-14 lg:grid-cols-2">
-              <BlurFade inView className="lg:order-2">
-                <div>
-                  <span className="grid size-12 place-items-center rounded-2xl bg-band-soft text-band">
-                    <MessageCircle className="size-6" aria-hidden="true" />
-                  </span>
-                  <h2 className="mt-6 font-heading text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[44px]">
-                    Ask Doc, get your family&apos;s answer
-                  </h2>
-                  <p className="mt-4 max-w-[44ch] text-[18px] leading-relaxed text-ink-2">
-                    Doc reads the records you&apos;ve saved before it answers, so it knows Dad&apos;s allergy and Mum&apos;s thyroid dose. For anything serious
-                    it tells you to see a doctor.
-                  </p>
-                </div>
-              </BlurFade>
-              <BlurFade inView delay={0.1} className="lg:order-1">
-                <DocChatPreview />
-              </BlurFade>
-            </div>
-          </div>
-        </section>
-
-        {/* Security */}
-        <section
-          id="security"
-          aria-labelledby="security-title"
-          className="relative scroll-mt-20 overflow-hidden py-24 text-white md:py-32"
-          style={{ background: 'linear-gradient(160deg, #0b6b60 0%, #08524a 55%, #063e38 100%)' }}
-        >
-          <DotPattern width={22} height={22} cr={1.2} className="text-white/[0.07] [mask-image:radial-gradient(ellipse_at_top_right,white,transparent_70%)]" />
-          <div className="relative mx-auto max-w-[1200px] px-5 md:px-8">
-            <BlurFade inView>
-              <h2 id="security-title" className="max-w-[20ch] font-heading text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[48px]">
-                Medical records are private by default
-              </h2>
-              <p className="mt-4 max-w-[52ch] text-[18px] leading-relaxed text-white/80">
-                Health data deserves more than a password. These protections are built into the database and the server, not bolted on.
-              </p>
-            </BlurFade>
-            <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  icon: Database,
-                  title: 'Row level security',
-                  body: 'Every table only returns rows where the owner is the signed-in user. Other accounts get nothing back.',
-                },
-                {
-                  icon: FileLock2,
-                  title: 'Private file storage',
-                  body: 'Uploads go to a private bucket, in a folder only your account can read or write. There are no public links.',
-                },
-                {
-                  icon: KeyRound,
-                  title: 'Checked on the server',
-                  body: 'Every AI request verifies your login token first, and only ever touches records your account owns.',
-                },
-                {
-                  icon: ShieldCheck,
-                  title: 'Only images and PDFs',
-                  body: 'Uploads are limited to photos and PDFs up to 10 MB, enforced by the storage bucket itself.',
-                },
-              ].map((item, i) => (
-                <BlurFade key={item.title} inView delay={i * 0.06}>
-                  <div className="h-full rounded-2xl bg-white/[0.07] p-6 ring-1 ring-white/12 backdrop-blur-sm">
-                    <item.icon className="size-6 text-due" aria-hidden="true" />
-                    <h3 className="mt-4 font-heading text-[19px] font-bold">{item.title}</h3>
-                    <p className="mt-2 text-[15px] leading-relaxed text-white/75">{item.body}</p>
+            {/* How it works */}
+            <section data-stage="how" id="how-it-works" aria-labelledby="how-title" className="mt-28 scroll-mt-6 bg-canvas px-4 py-24 sm:px-8 lg:mt-36 lg:pl-[clamp(40px,4.5vw,72px)] lg:pr-10 lg:py-32">
+              <Reveal>
+                <h2 id="how-title" className={H2}>
+                  Set up in one evening
+                </h2>
+                <p className="mt-5 max-w-[42ch] text-[18px] leading-relaxed text-ink-2">
+                  Most families start with the paper file in the kitchen drawer. A few minutes of photos and the whole history is dated.
+                </p>
+              </Reveal>
+              <div className="mt-12">
+                <Reveal as="figure" delay={0.08}>
+                  <Image
+                    src="/photos/thomson-taylor-s-pharmacy-interior.jpg"
+                    alt="Shelves of bottles and glass counters inside a chemist's shop"
+                    width={1654}
+                    height={1298}
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="w-full rounded-xl grayscale sm:w-[78%]"
+                  />
+                  <figcaption className="mt-3 text-[14px] text-ink-3 sm:max-w-[22ch]">A chemist&apos;s counter in Bombay, 1902. Prescriptions have been paper ever since.</figcaption>
+                </Reveal>
+                <Reveal delay={0.16} className="relative mt-8 sm:-mt-28 sm:ml-auto sm:mr-6 sm:max-w-[440px]">
+                  <div
+                    className="bg-surface px-6 pb-12 pt-7 text-[16px] num shadow-[var(--shadow-lift)]"
+                    style={{ clipPath: 'polygon(0 0,100% 0,100% calc(100% - 12px),95% 100%,90% calc(100% - 12px),85% 100%,80% calc(100% - 12px),75% 100%,70% calc(100% - 12px),65% 100%,60% calc(100% - 12px),55% 100%,50% calc(100% - 12px),45% 100%,40% calc(100% - 12px),35% 100%,30% calc(100% - 12px),25% 100%,20% calc(100% - 12px),15% 100%,10% calc(100% - 12px),5% 100%,0 calc(100% - 12px))' }}
+                  >
+                    <p className="text-center text-[15px] font-semibold">MediVault · your first week</p>
+                    {SLIP.map((g) => (
+                      <div key={g.when} className="mt-7">
+                        <p className="font-semibold">{g.when}</p>
+                        <ul className="mt-2 space-y-2">
+                          {g.rows.map(([what, time]) => (
+                            <li key={what} className="flex items-baseline gap-2">
+                              <span className="text-ink-2">{what}</span>
+                              <span aria-hidden="true" className="min-w-6 flex-1 translate-y-[-3px] border-b-[3px] border-dotted border-line-strong" />
+                              <span className="shrink-0">{time}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                    <p className="-mx-6 mt-8 flex h-11 items-center justify-between gap-4 bg-navy px-6 font-medium text-white">
+                      <span>Whole family, one calendar</span>
+                      <span>under 10 min</span>
+                    </p>
                   </div>
-                </BlurFade>
-              ))}
-            </div>
-            <p className="mt-10 text-[14px] text-white/65">Built with Next.js 16, Supabase (Postgres, Auth, Storage) and Google Gemini.</p>
-          </div>
-        </section>
+                </Reveal>
+              </div>
+              <div className="mt-14 flex justify-center lg:hidden">
+                <FamilyScene />
+              </div>
+            </section>
 
-        {/* Closing call to action */}
-        <section className="py-24 md:py-32">
-          <div className="mx-auto grid max-w-[1200px] items-center gap-12 px-5 md:px-8 lg:grid-cols-[1fr_auto]">
-            <BlurFade inView>
-              <h2 className="max-w-[16ch] font-heading text-[40px] font-extrabold leading-[1.02] tracking-[-0.025em] md:text-[56px]">
-                See your family&apos;s month in one place
-              </h2>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button size="lg" nativeButton={false} render={<Link href="/demo" />}>
-                  Try the demo <ArrowRight aria-hidden="true" />
+            {/* Emergency card */}
+            <section data-stage="card" id="emergency-card" aria-labelledby="card-title" className="scroll-mt-6 px-4 py-28 sm:px-8 lg:flex lg:min-h-[88svh] lg:flex-col lg:justify-center lg:pl-[clamp(40px,4.5vw,72px)] lg:pr-10 lg:py-40">
+              <Reveal>
+                <h2 id="card-title" className={cn(H2, 'max-w-[13ch]')}>
+                  The card for the worst day
+                </h2>
+                <p className="mt-5 max-w-[40ch] text-[18px] leading-relaxed text-ink-2">
+                  Blood group, allergies, current medicines and who to call, large enough to read in a hurry. Show it on a phone or print it for a wallet.
+                </p>
+              </Reveal>
+              <Reveal delay={0.08} className="mt-10">
+                <p className="mb-3 text-[15px] text-ink-3">Choose someone from the sample family:</p>
+                <MemberTabs />
+              </Reveal>
+              <Reveal delay={0.14} className="mt-12 flex flex-wrap gap-3">
+                <Button size="lg" variant="navy" nativeButton={false} render={<Link href="/demo" />}>
+                  See it in the demo <ArrowRight aria-hidden="true" />
                 </Button>
                 <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/auth?mode=signup" />}>
-                  Sign up
+                  Make one for your family
                 </Button>
+              </Reveal>
+            </section>
+
+            {/* Security */}
+            <section data-stage="security" id="security" aria-labelledby="security-title" className="scroll-mt-6 bg-navy px-4 py-24 text-white sm:px-8 lg:pl-[clamp(40px,4.5vw,72px)] lg:pr-10 lg:py-36">
+              <Reveal>
+                <h2 id="security-title" className={cn(H2, 'max-w-[14ch]')}>
+                  Private by default
+                </h2>
+                <p className="mt-5 max-w-[46ch] text-[18px] leading-relaxed text-white/80">
+                  Health records deserve more than a password. These protections live in the database and on the server, not in the app&apos;s screens.
+                </p>
+              </Reveal>
+              <dl className="mt-14 grid gap-x-10 gap-y-10 sm:grid-cols-2">
+                {PRIVACY.map(([t, b], i) => (
+                  <Reveal key={t} delay={i * 0.07}>
+                    <dt className="text-[22px] font-medium">{t}</dt>
+                    <dd className="mt-2 text-[16px] leading-relaxed text-white/75">{b}</dd>
+                  </Reveal>
+                ))}
+              </dl>
+              <div className="mt-14 lg:hidden">
+                <PolicyScene />
               </div>
-            </BlurFade>
-            <BlurFade inView delay={0.1}>
-              <Image src="/illustrations/calendar-scene.svg" alt="" width={460} height={394} className="mx-auto w-full max-w-[460px]" />
-            </BlurFade>
+              <Reveal className="mt-16 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-8">
+                <p className="text-[18px] text-white/70">Built on</p>
+                {['Supabase', 'Postgres', 'Google Gemini', 'Next.js'].map((n) => (
+                  <p key={n} className="text-[22px] font-medium tracking-[-0.01em]">
+                    {n}
+                  </p>
+                ))}
+              </Reveal>
+            </section>
+          </main>
+        </div>
+
+        {/* Closing: the first step, already open */}
+        <section aria-labelledby="closing-title" className="mesh">
+          <div className="mx-auto grid max-w-[1440px] items-end gap-12 lg:min-h-[90svh] px-4 py-20 sm:px-8 lg:grid-cols-2 lg:items-center lg:px-10 lg:py-24">
+            <Reveal className="lg:self-end">
+              <h2 id="closing-title" className="max-w-[14ch] font-heading text-[clamp(44px,7vw,112px)] leading-[0.92] tracking-[-0.04em]">
+                Start with one prescription
+              </h2>
+              <p className="mt-6 max-w-[38ch] text-[18px] leading-relaxed text-ink">
+                Try the demo first, with a sample family and nothing to set up. When you&apos;re ready, add your own and photograph the first prescription.
+              </p>
+            </Reveal>
+            <div className="flex justify-center lg:justify-end">
+              <AddMemberDialog />
+            </div>
           </div>
         </section>
-      </main>
 
-      <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-5 py-12 md:flex-row md:items-start md:justify-between md:px-8">
-          <div className="max-w-sm">
-            <Logo size={30} />
-            <p className="mt-4 text-[14px] leading-relaxed text-ink-3">
-              A personal project, not a medical device. AI output can be wrong; always confirm medical decisions with a doctor or pharmacist.
+        {/* Footer: the name across the last photograph */}
+        <footer className="relative isolate flex lg:min-h-[86svh] flex-col overflow-hidden text-white">
+          <Image
+            src="/photos/india-varanasi-pharmacy-0835.jpg"
+            alt=""
+            fill
+            sizes="100vw"
+            className="-z-10 object-cover brightness-[0.42]"
+          />
+          <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pt-10 sm:px-8 lg:px-10">
+            <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
+              <nav aria-label="Footer">
+                <ul className="space-y-2 text-[18px]">
+                  <li><Link href="/demo" className="hover:underline underline-offset-4">Try the demo</Link></li>
+                  <li><Link href="/auth?mode=signup" className="hover:underline underline-offset-4">Create an account</Link></li>
+                  <li><Link href="/auth" className="hover:underline underline-offset-4">Log in</Link></li>
+                  <li><a href={GITHUB} target="_blank" rel="noreferrer" className="hover:underline underline-offset-4">Source on GitHub</a></li>
+                </ul>
+              </nav>
+              <p className="max-w-[36ch] text-[18px] leading-relaxed text-white/85 sm:text-right">
+                A personal project by K S Phanindra. Not a medical device: AI output can be wrong, so confirm medical decisions with a doctor or pharmacist.
+              </p>
+            </div>
+            <p aria-hidden="true" className="mt-auto pt-24 text-[22vw] font-light leading-[0.78] tracking-[-0.04em] lg:text-[20.5vw]">
+              MediVault
+            </p>
+            <p className="max-w-[60ch] pb-6 pt-6 text-[14px] leading-relaxed text-white/70">
+              © {new Date().getFullYear()} K S Phanindra. Photographs: “India - Varanasi pharmacy” by Jorge Royan, CC BY-SA 3.0; “Thomson &amp; Taylor&apos;s
+              pharmacy, interior”, Wellcome Collection, CC BY 4.0; both via Wikimedia Commons.
             </p>
           </div>
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-10 gap-y-3 text-[15px]">
-            <Link href="/demo" className="text-ink-2 hover:text-ink">Demo</Link>
-            <Link href="/auth?mode=signup" className="text-ink-2 hover:text-ink">Sign up</Link>
-            <Link href="/auth" className="text-ink-2 hover:text-ink">Log in</Link>
-            <a href={GITHUB} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-ink-2 hover:text-ink">
-              <GithubMark /> GitHub
-            </a>
-          </nav>
-        </div>
-        <div className="border-t border-line">
-          <p className="mx-auto max-w-[1200px] px-5 py-5 text-[13px] text-ink-3 md:px-8">
-            © {new Date().getFullYear()} K S Phanindra · MediVault
-          </p>
-        </div>
-      </footer>
-    </div>
-  )
-}
-
-function Feature({
-  icon: Icon,
-  title,
-  children,
-  className,
-  delay = 0,
-}: {
-  icon: typeof ScanText
-  title: string
-  children: React.ReactNode
-  className?: string
-  delay?: number
-}) {
-  return (
-    <BlurFade inView delay={delay} className={className}>
-      <div className="group h-full rounded-3xl bg-surface p-7 shadow-card ring-1 ring-ink/[0.04] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-lift md:p-8">
-        <span className="grid size-11 place-items-center rounded-xl bg-band-soft text-band transition-colors duration-200 group-hover:bg-band group-hover:text-white">
-          <Icon className="size-[22px]" aria-hidden="true" />
-        </span>
-        <h3 className="mt-5 font-heading text-[21px] font-bold leading-tight">{title}</h3>
-        <div className="mt-2 text-[16px] leading-relaxed text-ink-2">{children}</div>
+        </footer>
       </div>
-    </BlurFade>
-  )
-}
-
-// lucide dropped brand icons, so the GitHub mark is drawn here.
-function GithubMark() {
-  return (
-    <svg viewBox="0 0 16 16" className="size-4" fill="currentColor" aria-hidden="true">
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
-    </svg>
+    </StageProvider>
   )
 }

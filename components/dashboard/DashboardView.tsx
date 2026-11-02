@@ -29,10 +29,12 @@ type Props = {
   vaccinations: Vaccination[]
   records: MedicalRecord[]
   demo?: boolean
+  // Rendered as a picture inside another page: no h1, numbers drawn at rest.
+  preview?: boolean
   onRetry?: () => void
 }
 
-export default function DashboardView({ status, members, colors, vaccinations, records, demo, onRetry }: Props) {
+export default function DashboardView({ status, members, colors, vaccinations, records, demo, preview, onRetry }: Props) {
   const today = startOfToday()
   const memberById = Object.fromEntries(members.map((m) => [m.id, m]))
   const firstName = (id: string) => memberById[id]?.name.split(' ')[0] || ''
@@ -71,15 +73,16 @@ export default function DashboardView({ status, members, colors, vaccinations, r
   const addHref = demo ? '/auth?mode=signup' : self ? `/profile/family/${self.id}?upload=1` : '/profile'
   const attention = overdueCount + dueSoonCount
   const loading = status === 'loading'
+  const Title = preview ? 'p' : 'h1'
 
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6 md:px-8 md:py-9">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[15px] text-ink-3">{today.toLocaleDateString('en-IN', { weekday: 'long' })}</p>
-          <h1 className="font-heading text-[34px] md:text-[42px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+          <Title className="font-heading text-[34px] md:text-[42px] font-extrabold leading-[1.05] tracking-[-0.02em]">
             {today.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}
-          </h1>
+          </Title>
           <p className="mt-1.5 text-[16px] text-ink-2">
             {loading
               ? 'Getting your family’s calendar ready…'

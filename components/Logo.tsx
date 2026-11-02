@@ -34,7 +34,7 @@ export default function Logo({
       <LogoMark size={size} tone={tone} />
       {showWordmark && (
         <span
-          className={cn('font-heading font-extrabold tracking-[-0.01em] leading-none', tone === 'white' ? 'text-white' : 'text-ink')}
+          className={cn('font-semibold tracking-[-0.03em] leading-none', tone === 'white' ? 'text-white' : 'text-ink')}
           style={{ fontSize: size * 0.66 }}
         >
           MediVault
