@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Languages, Loader2, Phone, Pill, Stethoscope } from 'lucide-react'
+import { Languages, Loader2, Phone, Pill, RotateCw, Stethoscope } from 'lucide-react'
 import { toast } from 'sonner'
-import { authHeaders } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,12 +49,6 @@ type ToolId = (typeof TOOLS)[number]['id']
 
 const urgencyVariant = { mild: 'ok', moderate: 'due', urgent: 'overdue' } as const
 
-async function post<T>(url: string, body: object): Promise<T> {
-  const res = await fetch(url, { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data
-}
 
 export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
   const [active, setActive] = useState<ToolId>('medicine')
@@ -68,7 +62,11 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
   const [noteText, setNoteText] = useState('')
   const [note, setNote] = useState<NoteResult | null>(null)
 
+  // The last request, so an error can offer to send it again.
+  const [lastTask, setLastTask] = useState<(() => Promise<void>) | null>(null)
+
   const run = async (task: () => Promise<void>) => {
+    setLastTask(() => task)
     if (demo) {
       toast('Quick answers need an account', { description: 'Sign up free to ask about medicines, symptoms and doctors’ notes.' })
       return
@@ -78,7 +76,7 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
     try {
       await task()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setError(aiMessage(err))
     }
     setLoading(false)
   }
@@ -117,17 +115,17 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
               if (active === 'medicine')
                 run(async () => {
                   setMedicine(null)
-                  setMedicine(await post<MedicineResult>('/api/medicine-lookup', { medicineName: medicineQuery }))
+                  setMedicine(await askAi<MedicineResult>('medicine-lookup', { medicineName: medicineQuery }))
                 })
               if (active === 'symptoms')
                 run(async () => {
                   setTriage(null)
-                  setTriage(await post<TriageResult>('/api/symptom-triage', { symptoms }))
+                  setTriage(await askAi<TriageResult>('symptom-triage', { symptoms }))
                 })
               if (active === 'note')
                 run(async () => {
                   setNote(null)
-                  setNote(await post<NoteResult>('/api/jargon-translate', { text: noteText }))
+                  setNote(await askAi<NoteResult>('jargon-translate', { text: noteText }))
                 })
             }}
             className={active === 'medicine' ? 'flex flex-col gap-2 sm:flex-row' : 'flex flex-col gap-2.5'}
@@ -186,7 +184,16 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
 
         <div aria-live="polite">
           {loading && <p className="mt-3 text-[13.5px] text-ink-3">This can take up to half a minute when the service is busy.</p>}
-          {error && <p role="alert" className="mt-3 rounded-lg bg-surface px-4 py-3 text-ink-2 border border-line">{error}</p>}
+          {error && (
+            <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+              <p className="min-w-0 flex-1 text-ink-2">{error}</p>
+              {lastTask && (
+                <Button type="button" size="sm" variant="outline" onClick={() => run(lastTask)}>
+                  <RotateCw aria-hidden="true" /> Try again
+                </Button>
+              )}
+            </div>
+          )}
 
           {active === 'medicine' && medicine && !loading && (
             <Result>

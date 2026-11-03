@@ -4,7 +4,8 @@ import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, FileText, Loader2, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase, authHeaders } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { dayLeaf, formatDay } from '@/lib/dates'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -104,11 +105,9 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
     setRetrying(true)
     setRetryError('')
     try {
-      const res = await fetch('/api/extract-record', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ recordId }) })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data.error) setRetryError(data.error || 'The reading service is busy. Try again in a minute.')
-    } catch {
-      setRetryError('Something went wrong. Check your connection and try again.')
+      await askAi('extract-record', { recordId })
+    } catch (e) {
+      setRetryError(aiMessage(e))
     }
     await load()
     setRetrying(false)

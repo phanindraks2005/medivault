@@ -1,8 +1,9 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
-import { Check, Loader2, Plus, X } from 'lucide-react'
-import { supabase, authHeaders } from '@/lib/supabase'
+import { Check, Loader2, Plus, RotateCw, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -79,12 +80,9 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
     setError('')
     setResult(null)
     try {
-      const res = await fetch('/api/interaction-check', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ medicines: toCheck }) })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data.error) throw new Error(data.error || 'The checker is busy. Try again in a minute.')
-      setResult(data)
+      setResult(await askAi<Result>('interaction-check', { medicines: toCheck }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
+      setError(aiMessage(e))
     }
     setChecking(false)
   }
@@ -189,9 +187,14 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
           <PanelHead id="result" title="Result" action={result && <Badge variant={severity[result.overall_risk]?.variant || 'neutral'}>{severity[result.overall_risk]?.label}</Badge>} />
           <div aria-live="polite">
             {error && (
-              <p role="alert" className="mt-3 rounded-lg border border-line bg-surface px-4 py-3 text-[15px]">
-                {error}
-              </p>
+              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+                <p className="min-w-0 flex-1 text-[15px]">{error}</p>
+                {toCheck.length >= 2 && toCheck.length <= LIMITS.medicines && (
+                  <Button size="sm" variant="outline" onClick={check} disabled={checking}>
+                    <RotateCw aria-hidden="true" /> Try again
+                  </Button>
+                )}
+              </div>
             )}
             {!result && !error && <EmptyLine>Choose the medicines and run the check. Results appear here.</EmptyLine>}
             {result && (

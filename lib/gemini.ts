@@ -15,8 +15,11 @@ const PRIMARY_MODEL = 'gemini-3.5-flash'
 const FALLBACK_MODEL = 'gemini-3.5-flash-lite'
 
 // When Gemini is overloaded a request can hang for minutes. Better to give up
-// and let the user try again than leave them looking at a spinner.
+// and let the user try again than leave them looking at a spinner. The browser
+// gives up at 30 s, so both attempts together stay inside BUDGET_MS.
 const TIMEOUT_MS = 25_000
+const BUDGET_MS = 28_000
+const MIN_FALLBACK_MS = 3_000
 
 function isBusy(err: unknown) {
   return err instanceof GoogleGenerativeAIFetchError && (err.status === 503 || err.status === 429)
@@ -29,12 +32,14 @@ export async function generate<T>(
   run: (model: GenerativeModel) => Promise<T>,
   params: Omit<ModelParams, 'model'> = {}
 ): Promise<T> {
+  const started = Date.now()
   try {
     return await run(genAI.getGenerativeModel({ model: PRIMARY_MODEL, ...params }, { timeout: TIMEOUT_MS }))
   } catch (err) {
-    if (!isBusy(err)) throw err
+    const left = BUDGET_MS - (Date.now() - started)
+    if (!isBusy(err) || left < MIN_FALLBACK_MS) throw err
     console.warn(`${PRIMARY_MODEL} unavailable, using ${FALLBACK_MODEL}`)
-    return run(genAI.getGenerativeModel({ model: FALLBACK_MODEL, ...params }, { timeout: TIMEOUT_MS }))
+    return run(genAI.getGenerativeModel({ model: FALLBACK_MODEL, ...params }, { timeout: left }))
   }
 }
 

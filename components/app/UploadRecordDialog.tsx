@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import { FileUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -92,15 +93,8 @@ export default function UploadRecordDialog({
       return setError("Couldn't save the record. Try again.")
     }
     // Reading runs in the background; the list shows "Reading…" until it lands.
-    const { data: { session } } = await supabase.auth.getSession()
-    fetch('/api/extract-record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ recordId: row.id }),
-    })
-      .then((res) => {
-        if (!res.ok) toast.error("Couldn't read that file. Open the record to try again.")
-      })
+    askAi('extract-record', { recordId: row.id })
+      .catch((e) => toast.error(`Couldn't read that file. ${aiMessage(e)}`, { description: 'Open the record to try again.' }))
       .finally(onUploaded)
     toast.success('Uploaded. Reading it now…')
     setBusy(false)

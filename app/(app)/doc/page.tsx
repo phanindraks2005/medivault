@@ -6,6 +6,7 @@ import { motion } from 'motion/react'
 import { ArrowUp, Loader2, RotateCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -87,18 +88,11 @@ export default function DocPage() {
     setSending(true)
     setError('')
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/doc-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ messages: list, today: localToday() }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data.error) throw new Error(data.error || 'Doc is busy right now. Try again in a minute.')
+      const data = await askAi<{ reply: string }>('doc-chat', { messages: list, today: localToday() })
       setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
       await supabase.from('chat_history').insert({ user_id: userId, role: 'assistant', content: data.reply })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
+      setError(aiMessage(e))
     }
     setSending(false)
   }

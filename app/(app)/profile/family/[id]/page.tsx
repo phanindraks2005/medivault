@@ -3,9 +3,10 @@
 import { Suspense, use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, CreditCard, FlaskConical, Loader2, Pencil, Phone, Plus, Sparkles, Syringe, Trash2 } from 'lucide-react'
+import { ChevronRight, CreditCard, FlaskConical, Loader2, Pencil, Phone, Plus, RotateCw, Sparkles, Syringe, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase, authHeaders } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
@@ -163,18 +164,11 @@ function Member({ id }: { id: string }) {
     setSummaryState('busy')
     setSummaryError('')
     try {
-      const res = await fetch('/api/visit-summary', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({ memberName: member?.name, records: usable }),
-      })
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error)
-      setSummary(data)
+      setSummary(await askAi<Summary>('visit-summary', { memberName: member?.name, records: usable }))
       setSummaryState('idle')
     } catch (e) {
       setSummaryState('error')
-      setSummaryError(e instanceof Error && e.message ? e.message : 'The summary service is busy. Try again in a minute.')
+      setSummaryError(aiMessage(e))
     }
   }
 
@@ -458,9 +452,12 @@ function Member({ id }: { id: string }) {
           <div aria-live="polite">
             {summaryState === 'busy' && <p className="mt-3 text-[14px] text-ink-3">This can take up to half a minute when the service is busy.</p>}
             {summaryState === 'error' && (
-              <p role="alert" className="mt-3 rounded-lg border border-line bg-surface px-4 py-3 text-[15px] text-ink-2">
-                {summaryError}
-              </p>
+              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+                <p className="min-w-0 flex-1 text-[15px] text-ink-2">{summaryError}</p>
+                <Button size="sm" variant="outline" onClick={generateSummary}>
+                  <RotateCw aria-hidden="true" /> Try again
+                </Button>
+              </div>
             )}
             {summary && summaryState !== 'busy' && (
               <div className="mt-3 grid gap-4 rounded-lg border border-line bg-surface p-5 lg:grid-cols-[1.2fr_1fr]">
