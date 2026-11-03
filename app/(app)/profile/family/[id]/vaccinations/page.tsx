@@ -59,6 +59,8 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
     .map((v) => ({ ...v, days: daysFromToday(v.next_due_date!) }))
     .sort((a, b) => a.days - b.days)
   const given = list.filter((v) => v.date_given).sort((a, b) => b.date_given!.localeCompare(a.date_given!))
+  // Saved before a date was required; listed so they can be deleted.
+  const undated = list.filter((v) => !v.date_given && !v.next_due_date)
   const overdue = due.filter((v) => v.days < 0).length
   const soon = due.filter((v) => v.days >= 0 && v.days <= 30).length
 
@@ -153,6 +155,23 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
             </ul>
           )}
         </Panel>
+
+        {undated.length > 0 && (
+          <Panel labelledBy="undated" className="lg:col-span-12">
+            <PanelHead id="undated" title="Missing a date" count={undated.length} hint="Add them again with a date, or delete them" />
+            <ul className="mt-3 overflow-hidden rounded-lg border border-line bg-surface">
+              {undated.map((v, i) => (
+                <li key={v.id} className={cn('flex items-center gap-3 px-3.5 py-3', i > 0 && 'border-t border-line')}>
+                  <span className="min-w-0 flex-1 truncate text-[15px]">{v.vaccine_name}</span>
+                  {v.notes && <span className="hidden min-w-0 truncate text-[13px] text-ink-3 sm:block">{v.notes}</span>}
+                  <Button variant="ghost" size="icon-sm" aria-label={`Delete ${v.vaccine_name}`} onClick={() => setToDelete(v)}>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
       </div>
 
       <AddVaccination memberId={id} name={first} open={adding} onOpenChange={setAdding} onAdded={load} />
@@ -200,6 +219,11 @@ function AddVaccination({
     if (!vaccine.trim()) {
       document.getElementById('v-name')?.focus()
       return setError('Add the vaccine name first.')
+    }
+    // Without either date the entry would appear in neither list.
+    if (!given && !next) {
+      document.getElementById('v-given')?.focus()
+      return setError('Add the date it was given, the next due date, or both.')
     }
     if (next && given && next < given) return setError('The next dose can’t be before the last one.')
     setBusy(true)
