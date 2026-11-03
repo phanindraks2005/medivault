@@ -26,7 +26,9 @@ Photographs on the landing page come from Wikimedia Commons and are credited in 
 
 ## Security notes
 
-Uploaded files are stored under the user's id in Supabase Storage. The bucket should be private, and every table needs row level security limiting rows to `auth.uid() = user_id`, since the browser client queries them directly. The two API routes that use the service-role key (`doc-chat` and `extract-record`) identify the user from their Supabase access token, sent as a bearer token, and only touch rows owned by that user.
+Uploaded files are stored under the user's id in Supabase Storage. The bucket should be private, and every table needs row level security limiting rows to `auth.uid() = user_id`, since the browser client queries them directly. The two API routes that use the service-role key (`doc-chat` and `extract-record`) identify the user from their Supabase access token, sent as a bearer token, and only touch rows owned by that user. `extract-record` also refuses any stored file path outside the caller's own folder, because the service-role client ignores storage policies.
+
+Every AI route requires a login, checks the shape and size of its input, and counts against a daily allowance of 30 AI requests per account (stored in the user's `app_metadata`, resets at midnight India time). Text fields have the same length limits in the forms (`lib/limits.ts`) and in the database (check constraints in `schema.sql`). `next.config.ts` sends a Content-Security-Policy, `X-Frame-Options: DENY`, `Referrer-Policy`, `X-Content-Type-Options` and, on non-local hosts, HSTS. Logging out ends the session on the current device only.
 
 ## Running locally
 
@@ -53,7 +55,7 @@ The app runs at http://localhost:3000.
 
 ### Database
 
-Run [`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor of a new project. It creates the tables (`family_members`, `medical_records`, `vaccinations`, `chat_history`, each with a `user_id` tied to `auth.users`), turns on row level security with per-user policies, and sets up the private `medical-records` Storage bucket (10 MB, images and PDFs) with policies that keep each user's files in their own folder. The script is safe to run again.
+Run [`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor of a new project. It creates the tables (`family_members`, `medical_records`, `vaccinations`, `chat_history`, each with a `user_id` tied to `auth.users`), turns on row level security with per-user policies, and sets up the private `medical-records` Storage bucket (10 MB, images and PDFs) with policies that keep each user's files in their own folder. It also adds length limits on text columns, requires a date on vaccinations, and requires each record's file path to sit in its owner's folder (added `NOT VALID`, so existing rows are left alone). The script is safe to run again.
 
 For local testing you can turn off email confirmation under Authentication → Sign In / Providers → Email.
 
