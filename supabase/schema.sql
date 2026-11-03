@@ -61,11 +61,38 @@ create table if not exists public.chat_history (
   created_at timestamptz not null default now()
 );
 
+-- Public links to a member's emergency card (the QR code). Only a SHA-256 hash
+-- of the link's token is stored; the token itself exists only in the link.
+-- The public page (app/e/[token]) looks the hash up with the service-role key.
+create table if not exists public.emergency_links (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  family_member_id uuid not null,
+  token_hash       text not null unique,
+  expires_at       timestamptz,                        -- null: until revoked
+  revoked_at       timestamptz,                        -- set when revoked or replaced
+  created_at       timestamptz not null default now(),
+  foreign key (family_member_id, user_id)
+    references public.family_members (id, user_id) on delete cascade
+);
+
+-- When a card link was opened. Timestamps only: no IP, device or location.
+-- Written only by the public page (service role); the owner can read them.
+create table if not exists public.emergency_link_opens (
+  id        bigint generated always as identity primary key,
+  link_id   uuid not null references public.emergency_links (id) on delete cascade,
+  user_id   uuid not null references auth.users (id) on delete cascade,
+  opened_at timestamptz not null default now()
+);
+
 create index if not exists family_members_user_id_idx    on public.family_members (user_id, created_at desc);
 create index if not exists medical_records_user_id_idx   on public.medical_records (user_id, created_at desc);
 create index if not exists medical_records_member_idx    on public.medical_records (family_member_id, created_at desc);
 create index if not exists vaccinations_member_idx       on public.vaccinations (family_member_id, date_given desc);
 create index if not exists chat_history_user_id_idx      on public.chat_history (user_id, created_at);
+create index if not exists emergency_link_opens_link_idx  on public.emergency_link_opens (link_id, opened_at desc);
+-- One live link per member: making a new one means revoking the old one first.
+create unique index if not exists emergency_links_one_live    on public.emergency_links (family_member_id) where revoked_at is null;
 
 -- ---------------------------------------------------------------------------
 -- Row level security: each user sees and changes only their own rows
@@ -75,7 +102,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['family_members', 'medical_records', 'vaccinations', 'chat_history']
+  foreach t in array array['family_members', 'medical_records', 'vaccinations', 'chat_history', 'emergency_links']
   loop
     execute format('alter table public.%I enable row level security', t);
 
@@ -96,6 +123,12 @@ begin
   end loop;
 end
 $$;
+
+-- Opens: the owner can read them; nobody but the service role writes them.
+alter table public.emergency_link_opens enable row level security;
+drop policy if exists "Users can view own rows" on public.emergency_link_opens;
+create policy "Users can view own rows" on public.emergency_link_opens
+  for select to authenticated using ((select auth.uid()) = user_id);
 
 -- ---------------------------------------------------------------------------
 -- Length limits (match lib/limits.ts) and safe file paths
@@ -126,7 +159,8 @@ begin
       ('vaccinations',    'vaccinations_name_len',          'char_length(vaccine_name) between 1 and 100'),
       ('vaccinations',    'vaccinations_notes_len',         'char_length(notes) <= 500'),
       ('vaccinations',    'vaccinations_has_date',          'date_given is not null or next_due_date is not null'),
-      ('chat_history',    'chat_history_content_len',       'char_length(content) <= 20000')
+      ('chat_history',    'chat_history_content_len',       'char_length(content) <= 20000'),
+      ('emergency_links', 'emergency_links_token_hash',     $c$token_hash ~ '^[0-9a-f]{64}$'$c$)
     ) as t(tbl, name, expr)
   loop
     execute format('alter table public.%I drop constraint if exists %I', c.tbl, c.name);

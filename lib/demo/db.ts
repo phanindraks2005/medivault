@@ -9,7 +9,7 @@ export const DEMO_USER_ID = '00000000-0000-4000-8000-00000000d3e0'
 export const DEMO_EMAIL = 'arjun@example.com'
 
 // Fields the landing page's sample doesn't need but the full screens show.
-const memberExtras: Record<string, Row> = {
+export const memberExtras: Record<string, Row> = {
   arjun: { height_cm: 176, weight_kg: 72, emergency_contact_name: 'Priya Sharma', emergency_contact_phone: '98450 12345' },
   ramesh: { height_cm: 168, weight_kg: 76.4, emergency_contact_name: 'Arjun Sharma', emergency_contact_phone: '98450 67890' },
   sunita: { height_cm: 158, weight_kg: 61, emergency_contact_name: 'Arjun Sharma', emergency_contact_phone: '98450 67890' },
@@ -45,6 +45,28 @@ function build(): Record<string, Row[]> {
     })),
     vaccinations: sampleVaccinations.map((v) => ({ ...v, user_id: DEMO_USER_ID, notes: vaccineNotes[v.id] || null, created_at: new Date().toISOString() })),
     chat_history: [],
+    ...cardLinks(),
+  }
+}
+
+// Ramesh's emergency card already has a QR link, opened a few times, so the
+// owner controls have something to show. Its token is demo-ramesh, which the
+// public page answers with the sample card.
+function cardLinks(): Record<string, Row[]> {
+  const ago = (days: number, hours = 0) => new Date(Date.now() - (days * 24 + hours) * 3600_000).toISOString()
+  return {
+    emergency_links: [
+      {
+        id: 'link-ramesh',
+        user_id: DEMO_USER_ID,
+        family_member_id: 'ramesh',
+        token_hash: '199190d29d1f62481190b0af3e332809c586d4b5b3fd0a452179a3140d6bdc1a',
+        expires_at: null,
+        revoked_at: null,
+        created_at: ago(12),
+      },
+    ],
+    emergency_link_opens: [ago(2, 3), ago(9, 5), ago(11, 1)].map((opened_at, i) => ({ id: i + 1, link_id: 'link-ramesh', user_id: DEMO_USER_ID, opened_at })),
   }
 }
 
@@ -52,7 +74,7 @@ export function demoTables() {
   if (!tables) {
     try {
       const saved = sessionStorage.getItem(DB_KEY)
-      tables = saved ? JSON.parse(saved) : build()
+      tables = saved ? { ...cardLinks(), ...JSON.parse(saved) } : build()
     } catch {
       tables = build()
     }
@@ -78,7 +100,7 @@ export function resetDemo() {
 // Files "uploaded" in the demo, kept as object URLs in this tab.
 export const demoFiles = new Map<string, string>()
 
-const children: Record<string, string[]> = { family_members: ['medical_records', 'vaccinations'] }
+const children: Record<string, string[]> = { family_members: ['medical_records', 'vaccinations', 'emergency_links'] }
 
 // Deleting a member takes their records and vaccinations with them, as the
 // real foreign keys do.
@@ -86,6 +108,8 @@ export function cascadeDelete(table: string, removed: Row[]) {
   const t = demoTables()
   for (const child of children[table] || []) {
     const ids = new Set(removed.map((r) => r.id))
+    const gone = t[child].filter((r) => ids.has(r.family_member_id))
     t[child] = t[child].filter((r) => !ids.has(r.family_member_id))
+    if (child === 'emergency_links') t.emergency_link_opens = t.emergency_link_opens.filter((o) => !gone.some((l) => l.id === o.link_id))
   }
 }

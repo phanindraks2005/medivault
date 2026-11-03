@@ -40,6 +40,16 @@ const nextConfig: NextConfig = {
         missing: [{ type: "host", value: local }],
         headers: [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }],
       },
+      // Public emergency cards: never indexed, never cached, and the link
+      // (which is the key) isn't sent on as a referrer.
+      {
+        source: "/e/:token",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+        ],
+      },
     ];
   },
 };
