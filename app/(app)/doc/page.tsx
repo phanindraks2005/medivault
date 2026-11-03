@@ -61,7 +61,8 @@ export default function DocPage() {
 
   const loadHistory = useCallback(async () => {
     setHistory('loading')
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return
     setUserId(user.id)
     const { data, error } = await supabase.from('chat_history').select('role, content').order('created_at', { ascending: true })

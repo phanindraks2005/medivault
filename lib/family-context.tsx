@@ -37,7 +37,11 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const demo = useDemo()
 
   const reload = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    // The stored session, not a round trip to Supabase Auth: it only decides
+    // whether to show the app, and RLS checks the token on every query anyway.
+    // An expired session is refreshed here, and comes back null if that fails.
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) {
       setStatus('signed-out')
       return

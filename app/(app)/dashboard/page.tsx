@@ -14,7 +14,9 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     setStatus('loading')
-    const { data: { user } } = await supabase.auth.getUser()
+    // Same as the family list: the stored session saves a round trip before the queries.
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return
     const [v, r] = await Promise.all([
       supabase.from('vaccinations').select('id, family_member_id, vaccine_name, date_given, next_due_date').eq('user_id', user.id),

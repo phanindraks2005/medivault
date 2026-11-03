@@ -39,6 +39,8 @@ type Props = {
   (12 × 77 + 11 × 16 = 1100). Rows span 3/3/3/3, then 9/3, then 6/6, then 12,
   so every internal edge meets one above it.
 */
+const DATE_TITLE: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }
+
 export default function DashboardView({ status, members, colors, vaccinations, records, demo, preview, onRetry }: Props) {
   const today = startOfToday()
   const memberById = Object.fromEntries(members.map((m) => [m.id, m]))
@@ -104,7 +106,16 @@ export default function DashboardView({ status, members, colors, vaccinations, r
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
           <Title className="font-heading text-[26px] leading-tight tracking-[-0.03em] sm:text-[32px]">
-            {hydrated ? today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : <span className="inline-block h-8 w-64 animate-pulse rounded-md bg-muted align-middle" />}
+            {hydrated ? (
+              today.toLocaleDateString('en-IN', DATE_TITLE)
+            ) : preview ? (
+              <span className="inline-block h-8 w-64 animate-pulse rounded-md bg-muted align-middle" />
+            ) : (
+              // The dashboard is rendered per request, so the server can paint the date
+              // straight away (in Indian time); after hydration it switches to the
+              // visitor's own clock. Painting it early is what makes the page's LCP fast.
+              new Date().toLocaleDateString('en-IN', { ...DATE_TITLE, timeZone: 'Asia/Kolkata' })
+            )}
           </Title>
           <p className={cn('mt-1.5 max-w-[64ch] text-[16px]', overdue.length && !loading ? 'text-ink' : 'text-ink-2')}>{finding}</p>
         </div>
@@ -161,7 +172,8 @@ export default function DashboardView({ status, members, colors, vaccinations, r
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
         <motion.div variants={rise} {...enter} className="min-w-0 lg:col-span-9">
-          {loading ? <Skeleton className="h-[560px] rounded-xl" /> : <MonthCalendar today={today} events={events} members={members} colors={colors} />}
+          {/* Same height as the calendar it stands in for: the day strip on phones, the month grid from md up. */}
+          {loading ? <Skeleton className="h-[188px] rounded-xl md:h-[592px]" /> : <MonthCalendar today={today} events={events} members={members} colors={colors} />}
         </motion.div>
 
         <motion.section variants={rise} {...enter} aria-labelledby="coming-up" className="flex flex-col rounded-xl bg-canvas p-5 lg:col-span-3">

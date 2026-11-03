@@ -139,27 +139,34 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
         back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }}
         lead={date ? <DateLeaf {...dayLeaf(date)} size="lg" /> : <Skeleton className="h-[62px] w-[60px] rounded-[10px]" />}
         title={record ? typeLabel(record.record_type) : <Skeleton className="h-8 w-40" />}
+        // On phones the doctor and dates wrap to about four lines; the minimum
+        // height holds that space while loading so the page doesn't jump.
         sub={
-          record ? (
-            <>
-              {[record.doctor_name, record.hospital_name].filter(Boolean).join(', ') || 'Doctor not known'}
-              {member && <> · for {member.name.split(' ')[0]}</>}
-              <span className="block text-[14px] text-ink-3 num">
-                {record.record_date ? `Written ${formatDay(record.record_date)}` : 'Date not read'} · uploaded {formatDay(record.created_at)}
-              </span>
-            </>
-          ) : (
-            'Loading…'
-          )
+          <span className="block min-h-[88px] sm:min-h-0">
+            {record ? (
+              <>
+                {[record.doctor_name, record.hospital_name].filter(Boolean).join(', ') || 'Doctor not known'}
+                {member && <> · for {member.name.split(' ')[0]}</>}
+                <span className="block text-[14px] text-ink-3 num">
+                  {record.record_date ? `Written ${formatDay(record.record_date)}` : 'Date not read'} · uploaded {formatDay(record.created_at)}
+                </span>
+              </>
+            ) : (
+              <>
+                Loading…
+                <span className="block text-[14px]">&nbsp;</span>
+              </>
+            )}
+          </span>
         }
+        // Rendered while loading too (disabled), so the header keeps its height.
         actions={
-          record &&
           !editing && (
             <>
-              <Button variant="outline" onClick={() => setEditing(true)}>
+              <Button variant="outline" onClick={() => setEditing(true)} disabled={!record}>
                 <Pencil aria-hidden="true" /> Edit
               </Button>
-              <Button variant="ghost" onClick={() => setConfirmDelete(true)} className="text-red-ink hover:bg-red-soft hover:text-red-ink">
+              <Button variant="ghost" onClick={() => setConfirmDelete(true)} disabled={!record} className="text-red-ink hover:bg-red-soft hover:text-red-ink">
                 <Trash2 aria-hidden="true" /> Delete
               </Button>
             </>
@@ -233,6 +240,13 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
               )}
             </Panel>
 
+            {/* Most records have notes; holding their place while loading keeps the file below from jumping. */}
+            {status === 'loading' && (
+              <Panel>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="mt-3 h-24 rounded-lg" />
+              </Panel>
+            )}
             {x?.notes && (
               <Panel labelledBy="notes">
                 <PanelHead id="notes" title="Doctor's notes" />

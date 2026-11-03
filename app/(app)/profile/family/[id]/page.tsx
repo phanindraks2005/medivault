@@ -233,20 +233,19 @@ function Member({ id }: { id: string }) {
         lead={member ? <MemberAvatar name={member.name} color={color} size={56} /> : <Skeleton className="size-14 rounded-full" />}
         title={member ? member.name : <Skeleton className="h-8 w-56" />}
         sub={member ? meta || relationLabel(member.relation) : 'Loading…'}
+        // Always rendered (disabled until loaded) so the row doesn't wrap in late and push the page down.
         actions={
-          member && (
-            <>
-              <ButtonLink variant="outline" href={`/profile/family/${id}/emergency`}>
-                <CreditCard aria-hidden="true" /> Emergency card
-              </ButtonLink>
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                <Pencil aria-hidden="true" /> Edit
-              </Button>
-              <Button onClick={() => setUploadOpen(true)}>
-                <Plus aria-hidden="true" /> Add a record
-              </Button>
-            </>
-          )
+          <>
+            <ButtonLink variant="outline" href={`/profile/family/${id}/emergency`}>
+              <CreditCard aria-hidden="true" /> Emergency card
+            </ButtonLink>
+            <Button variant="outline" onClick={() => setEditing(true)} disabled={!member}>
+              <Pencil aria-hidden="true" /> Edit
+            </Button>
+            <Button onClick={() => setUploadOpen(true)} disabled={!member}>
+              <Plus aria-hidden="true" /> Add a record
+            </Button>
+          </>
         }
       />
 

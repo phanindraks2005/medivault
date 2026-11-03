@@ -95,7 +95,7 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
     <Page>
       <PageHeader
         back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }}
-        lead={member && <MemberAvatar name={member.name} color={colors[id]} size={48} />}
+        lead={member ? <MemberAvatar name={member.name} color={colors[id]} size={48} /> : <Skeleton className="size-12 rounded-full" />}
         title="Interaction check"
         sub={`Checks ${member ? `${first}'s` : 'their'} medicines against each other, and against a new one before anyone takes it.`}
       />

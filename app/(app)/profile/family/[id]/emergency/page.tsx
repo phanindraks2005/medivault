@@ -118,7 +118,7 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
                   ))}
                 </ul>
               ) : (
-                <p className="text-[20px]">{status === 'ready' ? 'None known' : ''}</p>
+                status === 'loading' ? <Skeleton className="h-11 w-44 rounded-lg" /> : <p className="text-[20px]">None known</p>
               )}
             </dd>
           </div>
@@ -135,7 +135,16 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
                   ))}
                 </ul>
               ) : (
-                status === 'ready' && 'None on record'
+                // Placeholder lines while loading, so the card doesn't grow under the reader.
+                status === 'loading' ? (
+                  <span className="block space-y-2.5 py-1">
+                    <Skeleton className="h-6 w-56" />
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-6 w-52" />
+                  </span>
+                ) : (
+                  status === 'ready' && 'None on record'
+                )
               )}
             </dd>
           </div>
@@ -164,7 +173,14 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
                   )}
                 </>
               ) : (
-                status === 'ready' && <p className="text-[20px]">Not added yet</p>
+                status === 'loading' ? (
+                  <span className="block space-y-2">
+                    <Skeleton className="h-8 w-40" />
+                    <Skeleton className="h-12 w-48 rounded-full" />
+                  </span>
+                ) : (
+                  status === 'ready' && <p className="text-[20px]">Not added yet</p>
+                )
               )}
             </dd>
           </div>

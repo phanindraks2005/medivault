@@ -8,6 +8,7 @@ import { useFamily } from '@/lib/family-context'
 import { dayLeaf, daysFromToday, dueLabel, formatDay, todayISO } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -91,8 +92,8 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
     <Page>
       <PageHeader
         back={{ href: `/profile/family/${id}`, label: member?.name || 'Back' }}
-        lead={member && <MemberAvatar name={member.name} color={colors[id]} size={48} />}
-        title={member ? `${first}'s vaccinations` : 'Vaccinations'}
+        lead={member ? <MemberAvatar name={member.name} color={colors[id]} size={48} /> : <Skeleton className="size-12 rounded-full" />}
+        title={member ? `${first}'s vaccinations` : <Skeleton className="h-8 w-56" />}
         sub={sub}
         actions={
           <Button onClick={() => setAdding(true)}>
