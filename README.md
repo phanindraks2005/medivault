@@ -2,6 +2,8 @@
 
 A health records app for families. Upload a prescription or lab report, and MediVault reads it with Gemini and pulls out the doctor, date and medicines, so the whole family's medical history is searchable in one place.
 
+**Live:** [medivault-ks.vercel.app](https://medivault-ks.vercel.app) · [Try the demo](https://medivault-ks.vercel.app/demo) (no account needed) · [Sample QR emergency card](https://medivault-ks.vercel.app/e/demo-ramesh)
+
 ## Features
 
 - **Try it without an account.** `/demo` turns the tab into a full walkthrough with a sample family: every screen works (family, records with their original files, Doc, vaccinations, emergency cards with a sample QR link (its public page is `/e/demo-ramesh`), interaction check, visit summary and the quick answers). The real screens run against an in-browser copy of the sample data (`lib/demo/`), AI tools give labelled sample answers, and nothing is sent to Supabase or the AI. Changes last until the visitor leaves the demo or closes the tab. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
@@ -13,9 +15,25 @@ A health records app for families. Upload a prescription or lab report, and Medi
 - **Interaction checker.** Checks a family member's current medicines against each other for known interactions.
 - **Visit summary.** Generates a short summary of a member's records to bring to a doctor's appointment.
 - **Emergency card.** A large-type page with blood group, allergies, current medicines and a one-tap call button; it prints cleanly on one page.
-- **Share the emergency card via QR.** "Share via QR" on the card makes a public link (`https://medivault-ks.vercel.app/e/<token>`) with a 256-bit random token, never the member's id. Downloads: a bank-card-size wallet card (PNG at 300 dpi, print at 100%) and a phone lock-screen picture, both drawn in the browser. The public page needs no login, has no scripts, and shows only name, age, blood group, allergies (red, at the top), conditions, current medicines, the emergency contact with a call button, and Call 112 / Call 108. The owner can turn the link off, make a new one (the old QR stops working), set an expiry date, and see when it was last opened (times only). Turned-off, expired and unknown links all show "This card is no longer active".
+- **QR emergency card.** "Share via QR" on the card makes a public link (`https://medivault-ks.vercel.app/e/<token>`) with a 256-bit random token, never the member's id. Downloads: a bank-card-size wallet card (PNG at 300 dpi, print at 100%) and a phone lock-screen picture, both drawn in the browser. The public page needs no login, has no scripts, and shows only name, age, blood group, allergies (red, at the top), conditions, current medicines, the emergency contact with a call button, and Call 112 / Call 108. The owner can turn the link off, make a new one (the old QR stops working), set an expiry date, and see when it was last opened (times only). Turned-off, expired and unknown links all show "This card is no longer active".
 - **Vaccination tracker** per family member: next due first, overdue in red, due within 30 days in marigold.
 - **Quick tools** on the dashboard: medicine lookup, symptom triage, and a translator for medical jargon in doctor's notes.
+
+## Screenshots
+
+Taken from the live site with the demo's sample family. More in [`docs/screenshots`](docs/screenshots).
+
+| Landing | Dashboard |
+| --- | --- |
+| ![Landing page](docs/screenshots/landing.png) | ![Dashboard with the month calendar and what's coming up](docs/screenshots/dashboard.png) |
+
+| Emergency card | Share via QR |
+| --- | --- |
+| ![Emergency card for Ramesh Sharma](docs/screenshots/emergency-card.png) | ![Share via QR panel with the QR code, downloads, expiry and last opened times](docs/screenshots/qr-share-panel.png) |
+
+| Public QR card (phone) | Printable wallet card |
+| --- | --- |
+| <img src="docs/screenshots/qr-public-card.png" alt="Public emergency card opened from the QR on a phone" width="300"> | ![Wallet-size card with the QR code](docs/screenshots/qr-wallet-card.png) |
 
 ## Tech stack
 
