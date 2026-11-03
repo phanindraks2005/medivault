@@ -24,6 +24,12 @@ import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
+// YYYY-MM-DD in the visitor's time zone, so "due in 3 days" matches their calendar.
+function localToday() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function DocMark({ size = 32 }: { size?: number }) {
   return (
     <span
@@ -84,7 +90,7 @@ export default function DocPage() {
       const res = await fetch('/api/doc-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ messages: list }),
+        body: JSON.stringify({ messages: list, today: localToday() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || data.error) throw new Error(data.error || 'Doc is busy right now. Try again in a minute.')
