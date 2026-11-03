@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { OFFLINE_MESSAGE, isOffline, saveError, supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
-import { dayLeaf, formatDay } from '@/lib/dates'
+import { dayLeaf, formatDay, todayISO } from '@/lib/dates'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -318,6 +318,10 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (date && date > todayISO()) {
+      document.getElementById('r-date')?.focus()
+      return setError('The date the doctor wrote it can’t be in the future.')
+    }
     setBusy(true)
     setError('')
     const base = record.extracted_data && !record.extracted_data.error ? record.extracted_data : {}
@@ -347,7 +351,7 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
             <Segmented label="Type of record" options={TYPES} value={type} onChange={(v) => { setType(v); setDirty(true) }} />
           </div>
           <Field id="r-date" label="Date the doctor wrote it">
-            <Input id="r-date" name="record-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input id="r-date" name="record-date" type="date" max={todayISO()} value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
           <Field id="r-doctor" label="Doctor">
             <Input id="r-doctor" name="doctor" maxLength={LIMITS.doctor} autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />

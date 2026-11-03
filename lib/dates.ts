@@ -35,3 +35,9 @@ export function dueLabel(days: number) {
   if (days === 1) return 'Due tomorrow'
   return `In ${days} days`
 }
+
+// Today as YYYY-MM-DD in the visitor's time zone, for date inputs' max and checks.
+export function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

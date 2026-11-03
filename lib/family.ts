@@ -23,7 +23,8 @@ export function ageFrom(dob?: string | null) {
   const beforeBirthday =
     now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
   if (beforeBirthday) age--
-  return age
+  // A birth date in the future (saved before it was blocked) has no age to show.
+  return age < 0 ? null : age
 }
 
 export function relationLabel(relation?: string | null) {

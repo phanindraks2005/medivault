@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ease } from '@/lib/motion'
+import { todayISO } from '@/lib/dates'
+import { useHydrated } from '@/lib/use-hydrated'
 import { LIMITS } from '@/lib/limits'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -35,6 +37,8 @@ export default function OnboardingPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // "Today" depends on the visitor's clock, so the max date waits for the browser.
+  const hydrated = useHydrated()
 
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }))
 
@@ -111,7 +115,14 @@ export default function OnboardingPage() {
             transition={{ duration: 0.25, ease }}
             onSubmit={(e) => {
               e.preventDefault()
-              if (step === 0) setStep(1)
+              if (step === 0) {
+                if (form.dob && form.dob > todayISO()) {
+                  setError('The date of birth can’t be in the future.')
+                  return document.getElementById('dob')?.focus()
+                }
+                setError('')
+                setStep(1)
+              }
               else save()
             }}
             className="mt-8"
@@ -125,7 +136,7 @@ export default function OnboardingPage() {
                     <Input id="name" name="name" maxLength={LIMITS.name} autoComplete="name" value={form.name} onChange={(e) => set('name')(e.target.value)} required />
                   </Field>
                   <Field id="dob" label="Date of birth">
-                    <Input id="dob" name="dob" type="date" autoComplete="bday" value={form.dob} onChange={(e) => set('dob')(e.target.value)} />
+                    <Input id="dob" name="dob" type="date" max={hydrated ? todayISO() : undefined} autoComplete="bday" value={form.dob} onChange={(e) => set('dob')(e.target.value)} />
                   </Field>
                   <div className="grid grid-cols-2 gap-4">
                     <Field id="gender" label="Gender">

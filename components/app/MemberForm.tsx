@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Field } from '@/components/app/kit'
+import { todayISO } from '@/lib/dates'
 import { LIMITS } from '@/lib/limits'
 
 const RELATIONS = ['Mother', 'Father', 'Spouse', 'Daughter', 'Son', 'Sister', 'Brother', 'Grandmother', 'Grandfather', 'Other']
@@ -89,6 +90,11 @@ export default function MemberForm({
           document.getElementById('m-name')?.focus()
           return
         }
+        if (v.dob && v.dob > todayISO()) {
+          setError('The date of birth can’t be in the future.')
+          document.getElementById('m-dob')?.focus()
+          return
+        }
         setBusy(true)
         setError('')
         const problem = await onSubmit(v)
@@ -117,7 +123,7 @@ export default function MemberForm({
         </Field>
       )}
       <Field id="m-dob" label="Date of birth" className={isSelf ? 'sm:col-span-2' : undefined}>
-        <Input id="m-dob" name="dob" type="date" value={v.dob} onChange={(e) => set('dob')(e.target.value)} />
+        <Input id="m-dob" name="dob" type="date" max={todayISO()} value={v.dob} onChange={(e) => set('dob')(e.target.value)} />
       </Field>
       <Field id="m-gender" label="Gender">
         <Select value={v.gender || null} onValueChange={(x) => set('gender')(String(x ?? ''))}>

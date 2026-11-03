@@ -5,7 +5,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { saveError, supabase, userForSave } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
-import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
+import { dayLeaf, daysFromToday, dueLabel, formatDay, todayISO } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -226,6 +226,10 @@ function AddVaccination({
       document.getElementById('v-given')?.focus()
       return setError('Add the date it was given, the next due date, or both.')
     }
+    if (given && given > todayISO()) {
+      document.getElementById('v-given')?.focus()
+      return setError('The date given can’t be in the future. Use Next due for a dose that’s coming up.')
+    }
     if (next && given && next < given) return setError('The next dose can’t be before the last one.')
     setBusy(true)
     setError('')
@@ -265,7 +269,7 @@ function AddVaccination({
             <Input id="v-name" name="vaccine" maxLength={LIMITS.vaccine} autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
           </Field>
           <Field id="v-given" label="Date given">
-            <Input id="v-given" name="date-given" type="date" value={given} onChange={(e) => setGiven(e.target.value)} />
+            <Input id="v-given" name="date-given" type="date" max={todayISO()} value={given} onChange={(e) => setGiven(e.target.value)} />
           </Field>
           <Field id="v-next" label="Next due">
             <Input id="v-next" name="next-due" type="date" value={next} onChange={(e) => setNext(e.target.value)} />
