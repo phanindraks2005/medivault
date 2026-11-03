@@ -17,11 +17,13 @@ import { leaveDemo } from '@/lib/demo/mode'
 import { ease } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
+// The nav sits in the right 54% of the screen, so on laptops (and anything
+// with display scaling) there's room for only some links. The rest appear from 2xl.
 const LINKS = [
   { href: '#features', label: 'Features' },
   { href: '#how-it-works', label: 'How it works' },
-  { href: '#emergency-card', label: 'Emergency card' },
-  { href: '#security', label: 'Privacy' },
+  { href: '#emergency-card', label: 'Emergency card', wide: true },
+  { href: '#security', label: 'Privacy', wide: true },
 ]
 
 function useSignedIn() {
@@ -37,13 +39,13 @@ function useSignedIn() {
 export function LandingNav() {
   const signedIn = useSignedIn()
   return (
-    <nav aria-label="Main" className="flex items-center justify-between gap-6">
+    <nav aria-label="Main" className="flex min-w-0 items-center justify-between gap-6">
       <Link href="/" aria-label="MediVault home" className="rounded-full lg:hidden">
         <LogoMark size={34} />
       </Link>
-      <ul className="hidden items-center gap-6 whitespace-nowrap xl:gap-7 lg:flex">
+      <ul className="hidden min-w-0 items-center gap-6 whitespace-nowrap lg:flex 2xl:gap-7">
         {LINKS.map((l) => (
-          <li key={l.href}>
+          <li key={l.href} className={l.wide ? 'hidden 2xl:block' : undefined}>
             <a href={l.href} className="text-[15px] text-ink-2 transition-colors duration-150 hover:text-ink">
               {l.label}
             </a>
@@ -57,7 +59,8 @@ export function LandingNav() {
           </li>
         )}
       </ul>
-      <div className="flex items-center gap-1">
+      {/* Never shrinks, so the main button is always whole. */}
+      <div className="flex shrink-0 items-center gap-1">
       {!signedIn && (
         <ButtonLink variant="ghost" className="lg:hidden" href="/auth">
           Log in

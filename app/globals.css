@@ -159,6 +159,12 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
+  /* Safety net only: the real causes of sideways scroll are fixed where they
+     happen. clip (not hidden) so sticky positioning keeps working. */
+  html,
+  body {
+    overflow-x: clip;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), system-ui, sans-serif;

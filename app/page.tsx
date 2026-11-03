@@ -154,7 +154,12 @@ export default function Landing() {
                 <p className="mt-4 text-[14px] text-ink-3">The demo needs no account. It runs on a sample family.</p>
               </div>
 
-              <Wordmark className="relative z-20 order-3 -mt-[4vw] whitespace-nowrap lg:order-4 text-[21vw] font-light leading-[0.8] tracking-[-0.04em] text-ink lg:-ml-[11vw] lg:mt-auto lg:pb-10 lg:text-[clamp(120px,12.6vw,230px)]" />
+              {/* The wordmark crosses onto the stage on desktop, so its box reaches
+                  11vw to the left; clipping that box keeps the scaling wordmark from
+                  ever widening the page. */}
+              <div className="relative z-20 order-3 -mt-[4vw] overflow-x-clip lg:order-4 lg:-ml-[11vw] lg:mt-auto lg:pb-10">
+                <Wordmark className="whitespace-nowrap text-[21vw] font-light leading-[0.8] tracking-[-0.04em] text-ink lg:text-[clamp(120px,12.6vw,230px)]" />
+              </div>
             </section>
 
             {/* Features */}
