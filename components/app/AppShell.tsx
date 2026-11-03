@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { leaveDemo } from '@/lib/demo/mode'
 
 const NAV = [
   { label: 'Today', href: '/dashboard', icon: CalendarDays },
@@ -45,12 +46,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (status === 'signed-out') router.replace('/auth')
   }, [status, router])
 
-  // The demo only has the dashboard; everything else asks the visitor to sign up.
-  const hrefFor = (href: string) => (demo ? (href === '/dashboard' ? '/demo' : '/auth?mode=signup') : href)
-  const isActive = (href: string) => (demo ? href === '/dashboard' : pathname === href || pathname.startsWith(href + '/'))
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   const logout = async () => {
-    if (demo) return router.push('/')
+    if (demo) {
+      leaveDemo()
+      return router.push('/')
+    }
     // This device only; the default would also sign out every other device.
     await supabase.auth.signOut({ scope: 'local' })
     router.push('/auth')
@@ -70,7 +72,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar, on the same ground as the frame */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] flex-col px-3 pb-3 pt-5 lg:flex print:hidden">
         <div className="px-3">
-          <Link href={demo ? '/' : '/dashboard'} aria-label="MediVault home" className="inline-flex rounded-full">
+          <Link href="/dashboard" aria-label="MediVault home" className="inline-flex rounded-full">
             <Logo size={28} />
           </Link>
           <p className="mt-2 truncate text-[13px] text-ink-3">{household}</p>
@@ -83,7 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <Link
                 key={item.href}
-                href={hrefFor(item.href)}
+                href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'relative flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px] transition-colors duration-150',
@@ -100,22 +102,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="mt-7 flex items-center justify-between px-3">
           <h2 className="text-[13px] text-ink-3">Members</h2>
-          {!demo && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Link
-                    href="/profile?add=1"
-                    aria-label="Add a family member"
-                    className="grid size-7 place-items-center rounded-md text-ink-3 transition-colors hover:bg-[#e6ebf1] hover:text-ink"
-                  />
-                }
-              >
-                <Plus className="size-4" aria-hidden="true" />
-              </TooltipTrigger>
-              <TooltipContent side="right">Add a family member</TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Link
+                  href="/profile?add=1"
+                  aria-label="Add a family member"
+                  className="grid size-7 place-items-center rounded-md text-ink-3 transition-colors hover:bg-[#e6ebf1] hover:text-ink"
+                />
+              }
+            >
+              <Plus className="size-4" aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent side="right">Add a family member</TooltipContent>
+          </Tooltip>
         </div>
         <ul className="mt-1 space-y-0.5 overflow-y-auto">
           {status === 'loading' &&
@@ -127,11 +127,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           {members.map((m) => {
             const href = `/profile/family/${m.id}`
-            const active = !demo && pathname.startsWith(href)
+            const active = pathname.startsWith(href)
             return (
               <li key={m.id}>
                 <Link
-                  href={demo ? '/auth?mode=signup' : href}
+                  href={href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex h-10 items-center gap-2.5 rounded-lg px-3 transition-colors duration-150',
@@ -172,7 +172,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Phone and tablet top bar */}
       <header className="sticky top-0 z-30 flex h-12 items-center justify-between bg-canvas px-4 shadow-[0_1px_0_var(--line)] lg:hidden print:hidden">
-        <Link href={demo ? '/' : '/dashboard'} aria-label="MediVault home" className="rounded-full">
+        <Link href="/dashboard" aria-label="MediVault home" className="rounded-full">
           <Logo size={26} />
         </Link>
         <DropdownMenu>
@@ -195,7 +195,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {demo && (
             <div className="px-4 pt-4 sm:px-6">
               <p className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-2 rounded-lg bg-due-soft px-4 py-2.5 text-[14px] text-due-ink">
-                <span>You&apos;re looking at a sample family. Nothing here is real data.</span>
+                <span>You&apos;re trying MediVault with a sample family. Changes stay in this browser tab only; nothing is saved to an account.</span>
                 <Link href="/auth?mode=signup" className="font-medium underline underline-offset-4">
                   Sign up to add yours
                 </Link>
@@ -217,7 +217,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           return (
             <Link
               key={item.href}
-              href={hrefFor(item.href)}
+              href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cn('relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[12px] font-medium', active ? 'text-ink' : 'text-ink-3')}
             >

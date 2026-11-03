@@ -1,4 +1,6 @@
 import { authHeaders } from '@/lib/supabase'
+import { isDemo } from '@/lib/demo/mode'
+import { demoAnswer } from '@/lib/demo/ai'
 
 // Every AI call from the browser goes through askAi, so they all share one
 // timeout and one set of plain-language errors. Nothing here shows the user
@@ -14,6 +16,12 @@ export const AI_MESSAGES = {
 export class AiError extends Error {}
 
 export async function askAi<T>(path: string, body: object): Promise<T> {
+  // The demo answers from its sample data and never calls the API.
+  if (isDemo()) {
+    const data = (await demoAnswer(path, body as Record<string, unknown>)) as { error?: string }
+    if (data.error) throw new AiError(data.error)
+    return data as T
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) throw new AiError(AI_MESSAGES.offline)
 
   const controller = new AbortController()

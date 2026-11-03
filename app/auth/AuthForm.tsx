@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { leaveDemo } from '@/lib/demo/mode'
 import AuthSplit from '@/components/auth/AuthSplit'
 import { PrescriptionScene } from '@/components/landing/scenes'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,8 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    // Signing up or logging in from the demo starts a real session.
+    leaveDemo()
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace('/dashboard')
     })

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import DemoDashboard from './DemoDashboard'
+import DemoEntry from './DemoEntry'
 
 export const metadata: Metadata = {
   title: 'Demo',
-  description: 'Try MediVault with a sample family: calendar, records, vaccinations and allergies.',
+  description: 'Try every part of MediVault with a sample family: calendar, records, Doc, vaccinations, emergency cards and the AI tools.',
 }
 
 export default function DemoPage() {
-  return <DemoDashboard />
+  return <DemoEntry />
 }

@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, FileText, Loader2, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { OFFLINE_MESSAGE, isOffline, saveError, supabase } from '@/lib/supabase'
+import { OFFLINE_MESSAGE, fileUrl as linkToFile, isOffline, saveError, supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { dayLeaf, formatDay, todayISO } from '@/lib/dates'
@@ -87,10 +87,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   // The bucket is private: a short-lived signed link shows the original file.
   useEffect(() => {
     if (!record?.file_url) return
-    supabase.storage
-      .from('medical-records')
-      .createSignedUrl(record.file_url, 60 * 30)
-      .then(({ data }) => setFileUrl(data?.signedUrl || null))
+    linkToFile(record.file_url, 60 * 30).then(setFileUrl)
   }, [record?.file_url])
 
   const reading = status === 'ready' && !record?.extracted_data

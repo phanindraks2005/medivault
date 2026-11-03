@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { memberColors } from '@/lib/family'
+import { useDemo } from '@/lib/demo/mode'
 
 export type Member = {
   id: string
@@ -28,20 +29,14 @@ type FamilyState = {
 
 const FamilyContext = createContext<FamilyState | null>(null)
 
-export function FamilyProvider({
-  children,
-  sample,
-}: {
-  children: React.ReactNode
-  // Sample members for the public demo; skips Supabase entirely.
-  sample?: { email: string; members: Member[] }
-}) {
-  const [status, setStatus] = useState<FamilyState['status']>(sample ? 'ready' : 'loading')
-  const [email, setEmail] = useState(sample?.email || '')
-  const [members, setMembers] = useState<Member[]>(sample?.members || [])
+export function FamilyProvider({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<FamilyState['status']>('loading')
+  const [email, setEmail] = useState('')
+  const [members, setMembers] = useState<Member[]>([])
+  // In a demo tab the same queries are answered by the sample family.
+  const demo = useDemo()
 
   const reload = useCallback(async () => {
-    if (sample) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setStatus('signed-out')
@@ -59,7 +54,7 @@ export function FamilyProvider({
     }
     setMembers(data || [])
     setStatus('ready')
-  }, [sample])
+  }, [])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -73,10 +68,10 @@ export function FamilyProvider({
       members,
       colors: memberColors(members),
       self: members.find((m) => m.relation?.toLowerCase() === 'self'),
-      demo: Boolean(sample),
+      demo,
       reload,
     }),
-    [status, email, members, sample, reload]
+    [status, email, members, demo, reload]
   )
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>

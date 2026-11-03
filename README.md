@@ -4,7 +4,7 @@ A health records app for families. Upload a prescription or lab report, and Medi
 
 ## Features
 
-- **Try it without an account.** `/demo` opens the real dashboard with a sample family. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
+- **Try it without an account.** `/demo` turns the tab into a full walkthrough with a sample family: every screen works (family, records with their original files, Doc, vaccinations, emergency cards, interaction check, visit summary and the quick answers). The real screens run against an in-browser copy of the sample data (`lib/demo/`), AI tools give labelled sample answers, and nothing is sent to Supabase or the AI. Changes last until the visitor leaves the demo or closes the tab. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
 - **Calendar dashboard.** A month view of due and overdue vaccinations and the dates prescriptions were written, each family member in their own colour. Red is kept for overdue items and allergies.
 - **Family profiles.** One account manages records for every family member: blood group, allergies, known conditions.
 - **Record extraction.** Upload a photo or PDF (JPEG, PNG, WebP, HEIC or PDF, up to 10 MB) of a prescription or report. Gemini extracts the doctor name, the date the doctor wrote it, medicines with dosage and frequency, and notes. The record page shows the original file next to what was read, lets you correct anything (including the date), and offers a retry if reading fails.

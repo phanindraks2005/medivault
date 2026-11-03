@@ -13,6 +13,7 @@ import { LogoMark } from '@/components/Logo'
 import { useStage } from '@/components/landing/Stage'
 import { EmergencyCard } from '@/components/landing/scenes'
 import { sampleColors, sampleMembers } from '@/lib/sample-family'
+import { leaveDemo } from '@/lib/demo/mode'
 import { ease } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,8 @@ const LINKS = [
 function useSignedIn() {
   const [signedIn, setSignedIn] = useState(false)
   useEffect(() => {
+    // Back on the landing page means out of the demo.
+    leaveDemo()
     supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)))
   }, [])
   return signedIn
