@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
@@ -19,6 +19,11 @@ import { LIMITS } from '@/lib/limits'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const GENDERS = ['Female', 'Male', 'Other']
+
+async function hasSelf() {
+  const { data } = await supabase.from('family_members').select('id').eq('relation', 'self').limit(1)
+  return !!data?.length
+}
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -40,6 +45,19 @@ export default function OnboardingPage() {
   // "Today" depends on the visitor's clock, so the max date waits for the browser.
   const hydrated = useHydrated()
 
+  // Onboarding creates the account holder's own profile, once. Logged out goes
+  // to /auth; someone who already has a profile goes straight to the calendar.
+  const [checked, setChecked] = useState(false)
+  useEffect(() => {
+    const check = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return router.replace('/auth')
+      if (await hasSelf()) return router.replace('/dashboard')
+      setChecked(true)
+    }
+    check()
+  }, [router])
+
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }))
 
   const save = async () => {
@@ -51,6 +69,8 @@ export default function OnboardingPage() {
       setLoading(false)
       return
     }
+    // Saved in another tab, or a double submit: never add a second "You".
+    if (await hasSelf()) return router.replace('/dashboard')
     const { error } = await supabase.from('family_members').insert({
       user_id: user.id,
       name: form.name.trim(),
@@ -91,7 +111,7 @@ export default function OnboardingPage() {
         />
       }
     >
-      <div>
+      <div className={checked ? undefined : 'invisible'} aria-busy={!checked}>
         <div className="flex items-center gap-3" aria-label={`Step ${step + 1} of 2`}>
           {[0, 1].map((i) => (
             <span key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
