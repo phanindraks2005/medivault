@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 import { FileUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { saveError, supabase, userForSave } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,16 +64,16 @@ export default function UploadRecordDialog({
     if (!file) return setError('Choose a photo or PDF first.')
     setBusy(true)
     setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const user = await userForSave()
+    if (user.error) {
       setBusy(false)
-      return setError('Your session has ended. Log in again.')
+      return setError(user.error)
     }
     const path = `${user.id}/${Date.now()}_${file.name.replace(/[^\w.-]+/g, '_')}`
     const up = await supabase.storage.from('medical-records').upload(path, file, { contentType: file.type })
     if (up.error) {
       setBusy(false)
-      return setError("Couldn't upload the file. Check your connection and try again.")
+      return setError(saveError("Couldn't upload the file. Try again."))
     }
     const { data: row, error: insertError } = await supabase
       .from('medical_records')
@@ -90,7 +90,7 @@ export default function UploadRecordDialog({
     if (insertError || !row) {
       await supabase.storage.from('medical-records').remove([path])
       setBusy(false)
-      return setError("Couldn't save the record. Try again.")
+      return setError(saveError("Couldn't save the record. Try again."))
     }
     // Reading runs in the background; the list shows "Reading…" until it lands.
     askAi('extract-record', { recordId: row.id })

@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, FileText, Loader2, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { OFFLINE_MESSAGE, isOffline, saveError, supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { dayLeaf, formatDay } from '@/lib/dates'
@@ -114,11 +114,12 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   }
 
   const remove = async () => {
+    if (isOffline()) return toast.error(OFFLINE_MESSAGE)
     setDeleting(true)
     if (record?.file_url) await supabase.storage.from('medical-records').remove([record.file_url])
     const { error } = await supabase.from('medical_records').delete().eq('id', recordId)
     setDeleting(false)
-    if (error) return toast.error("Couldn't delete the record. Try again.")
+    if (error) return toast.error(saveError("Couldn't delete the record. Try again."))
     toast.success('Record deleted')
     router.push(`/profile/family/${id}`)
   }
@@ -331,7 +332,7 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
       })
       .eq('id', record.id)
     setBusy(false)
-    if (error) return setError("Couldn't save. Check your connection and try again.")
+    if (error) return setError(saveError("Couldn't save. Try again."))
     setDirty(false)
     onSaved()
   }

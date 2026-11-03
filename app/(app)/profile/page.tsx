@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { saveError, supabase, userForSave } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel } from '@/lib/dates'
@@ -182,10 +182,10 @@ function Family() {
             busyLabel="Adding…"
             onCancel={() => setOpen(false)}
             onSubmit={async (values) => {
-              const { data: { user } } = await supabase.auth.getUser()
-              if (!user) return 'Your session has ended. Log in again.'
+              const user = await userForSave()
+              if (user.error) return user.error
               const { error } = await supabase.from('family_members').insert({ user_id: user.id, ...toRow(values) })
-              if (error) return "Couldn't save. Check your connection and try again."
+              if (error) return saveError("Couldn't save. Try again.")
               await reload()
               setOpen(false)
               toast.success(`${values.name.trim()} added`)

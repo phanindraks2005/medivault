@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { saveError, supabase, userForSave } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,7 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
     if (!toDelete) return
     const { error } = await supabase.from('vaccinations').delete().eq('id', toDelete.id)
     setToDelete(null)
-    if (error) return toast.error("Couldn't delete it. Try again.")
+    if (error) return toast.error(saveError("Couldn't delete it. Try again."))
     toast.success(`${toDelete.vaccine_name} deleted`)
     load()
   }
@@ -229,10 +229,10 @@ function AddVaccination({
     if (next && given && next < given) return setError('The next dose can’t be before the last one.')
     setBusy(true)
     setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const user = await userForSave()
+    if (user.error) {
       setBusy(false)
-      return setError('Your session has ended. Log in again.')
+      return setError(user.error)
     }
     const { error } = await supabase.from('vaccinations').insert({
       user_id: user.id,
@@ -243,7 +243,7 @@ function AddVaccination({
       notes: notes.trim() || null,
     })
     setBusy(false)
-    if (error) return setError("Couldn't save. Check your connection and try again.")
+    if (error) return setError(saveError("Couldn't save. Try again."))
     toast.success(`${vaccine.trim()} added`)
     setVaccine('')
     setGiven('')

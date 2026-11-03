@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronRight, CreditCard, FlaskConical, Loader2, Pencil, Phone, Plus, RotateCw, Sparkles, Syringe, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { OFFLINE_MESSAGE, isOffline, saveError, supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
@@ -173,13 +173,14 @@ function Member({ id }: { id: string }) {
   }
 
   const remove = async () => {
+    if (isOffline()) return toast.error(OFFLINE_MESSAGE)
     setDeleting(true)
     // Remove their files too, so nothing is left behind in storage.
     const files = (records as (MedicalRecord & { file_url?: string | null })[]).map((r) => r.file_url).filter(Boolean) as string[]
     if (files.length) await supabase.storage.from('medical-records').remove(files)
     const { error } = await supabase.from('family_members').delete().eq('id', id)
     setDeleting(false)
-    if (error) return toast.error(`Couldn't delete ${first}. Try again.`)
+    if (error) return toast.error(saveError(`Couldn't delete ${first}. Try again.`))
     await family.reload()
     toast.success(`${member?.name} deleted`)
     router.push('/profile')
@@ -516,7 +517,7 @@ function Member({ id }: { id: string }) {
                     .from('family_members')
                     .update(isSelf ? { ...row, relation: 'self' } : row)
                     .eq('id', id)
-                  if (error) return "Couldn't save. Check your connection and try again."
+                  if (error) return saveError("Couldn't save. Try again.")
                   setEditing(false)
                   toast.success('Saved')
                   load()

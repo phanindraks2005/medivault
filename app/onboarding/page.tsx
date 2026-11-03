@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { saveError, supabase, userForSave } from '@/lib/supabase'
 import AuthSplit from '@/components/auth/AuthSplit'
 import EmergencyCardView from '@/components/app/EmergencyCardView'
 import { ageFrom, allergyList } from '@/lib/family'
@@ -41,9 +41,10 @@ export default function OnboardingPage() {
   const save = async () => {
     setLoading(true)
     setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/auth')
+    const user = await userForSave()
+    if (user.error) {
+      setError(user.error)
+      setLoading(false)
       return
     }
     const { error } = await supabase.from('family_members').insert({
@@ -61,7 +62,7 @@ export default function OnboardingPage() {
       emergency_contact_phone: form.emergencyContactPhone || null,
     })
     if (error) {
-      setError("Couldn't save your profile. Check your connection and try again.")
+      setError(saveError("Couldn't save your profile. Try again."))
       setLoading(false)
     } else {
       router.push('/dashboard')

@@ -5,8 +5,8 @@ import ReactMarkdown from 'react-markdown'
 import { motion } from 'motion/react'
 import { ArrowUp, Loader2, RotateCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
-import { aiMessage, askAi } from '@/lib/ai-client'
+import { isOffline, saveError, supabase } from '@/lib/supabase'
+import { AI_MESSAGES, aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -100,6 +100,8 @@ export default function DocPage() {
   const send = async (text: string) => {
     const q = text.trim()
     if (!q || !userId || sending) return
+    // Offline: keep the question in the box rather than sending it into the void.
+    if (isOffline()) return setError(AI_MESSAGES.offline)
     const list: Message[] = [...messages, { role: 'user', content: q }]
     setMessages(list)
     setInput('')
@@ -110,7 +112,7 @@ export default function DocPage() {
   const clear = async () => {
     const { error } = await supabase.from('chat_history').delete().eq('user_id', userId)
     setConfirmClear(false)
-    if (error) return toast.error("Couldn't clear the conversation. Try again.")
+    if (error) return toast.error(saveError("Couldn't clear the conversation. Try again."))
     setMessages([])
     setError('')
   }
