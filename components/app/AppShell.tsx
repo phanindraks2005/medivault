@@ -51,7 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     if (demo) return router.push('/')
-    await supabase.auth.signOut()
+    // This device only; the default would also sign out every other device.
+    await supabase.auth.signOut({ scope: 'local' })
     router.push('/auth')
   }
 
