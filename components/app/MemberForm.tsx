@@ -44,7 +44,8 @@ export function toRow(v: MemberValues) {
   const t = (s: string) => s.trim() || null
   return {
     name: v.name.trim(),
-    relation: v.relation ? v.relation.toLowerCase() : null,
+    // The column is required; someone added without a relation is "Other".
+    relation: v.relation ? v.relation.toLowerCase() : 'other',
     dob: v.dob || null,
     gender: t(v.gender),
     blood_group: t(v.blood_group),
@@ -99,7 +100,7 @@ export default function MemberForm({
         <Input id="m-name" name="name" autoComplete="off" value={v.name} onChange={(e) => set('name')(e.target.value)} required />
       </Field>
       {!isSelf && (
-        <Field id="m-relation" label="Relation">
+        <Field id="m-relation" label="Relation" hint="Optional">
           <Select value={relationValue} onValueChange={(x) => set('relation')(String(x ?? ''))}>
             <SelectTrigger id="m-relation" className="w-full">
               <SelectValue placeholder="Choose…" />
