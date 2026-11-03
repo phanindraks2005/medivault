@@ -1,11 +1,12 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
-import { Phone, Printer } from 'lucide-react'
+import { Phone, Printer, QrCode } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList } from '@/lib/family'
-import { Button } from '@/components/ui/button'
+import { Button, ButtonLink } from '@/components/ui/button'
+import ShareCardPanel from '@/components/app/ShareCardPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import { ErrorLine, Page, PageHeader } from '@/components/app/kit'
@@ -68,9 +69,14 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
           title="Emergency card"
           sub="Show it on this screen or print it for a wallet or the fridge door."
           actions={
-            <Button onClick={() => window.print()} disabled={status !== 'ready'}>
-              <Printer aria-hidden="true" /> Print or save as PDF
-            </Button>
+            <>
+              <ButtonLink variant="outline" href="#share-qr">
+                <QrCode aria-hidden="true" /> Share via QR
+              </ButtonLink>
+              <Button onClick={() => window.print()} disabled={status !== 'ready'}>
+                <Printer aria-hidden="true" /> Print or save as PDF
+              </Button>
+            </>
           }
         />
       </div>
@@ -184,6 +190,19 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
           From MediVault{status === 'ready' && `, ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}. Medicines are the current ones read from prescriptions; confirm with a doctor.
         </footer>
       </article>
+
+      <ShareCardPanel
+        memberId={id}
+        face={
+          card && {
+            name: card.name,
+            bloodGroup: card.blood_group,
+            allergies,
+            contactName: card.emergency_contact_name,
+            contactPhone: card.emergency_contact_phone,
+          }
+        }
+      />
     </Page>
   )
 }
