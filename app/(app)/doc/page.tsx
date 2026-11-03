@@ -26,6 +26,9 @@ import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
+// Matches the server, which ignores anything older.
+const RECENT_TURNS = 12
+
 // YYYY-MM-DD in the visitor's time zone, so "due in 3 days" matches their calendar.
 function localToday() {
   const d = new Date()
@@ -88,7 +91,8 @@ export default function DocPage() {
     setSending(true)
     setError('')
     try {
-      const data = await askAi<{ reply: string }>('doc-chat', { messages: list, today: localToday() })
+      // Only recent turns are sent; the server reads the family's records itself.
+      const data = await askAi<{ reply: string }>('doc-chat', { messages: list.slice(-RECENT_TURNS), today: localToday() })
       setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
       await supabase.from('chat_history').insert({ user_id: userId, role: 'assistant', content: data.reply })
     } catch (e) {
@@ -128,6 +132,8 @@ export default function DocPage() {
   ]
 
   const lastIsUser = messages[messages.length - 1]?.role === 'user'
+  // A question saved before its answer failed (or the page closed) still offers a retry after reload.
+  const unanswered = lastIsUser && !sending && history === 'ready'
 
   return (
     <div className="-mb-24 flex h-[calc(100dvh-48px-56px)] flex-col lg:mb-0 lg:h-[calc(100dvh-18px)]">
@@ -230,9 +236,9 @@ export default function DocPage() {
             </ol>
           )}
 
-          {error && (
+          {(error || unanswered) && (
             <div role="alert" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-canvas px-4 py-3">
-              <p className="flex-1 text-[15px]">{error}</p>
+              <p className="flex-1 text-[15px]">{error || "This question didn't get an answer."}</p>
               {lastIsUser && (
                 <Button size="sm" variant="outline" onClick={() => ask(messages)} disabled={sending}>
                   <RotateCw aria-hidden="true" /> Try again
