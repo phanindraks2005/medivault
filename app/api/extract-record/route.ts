@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    // file_url is written by the client, and the admin client ignores storage
+    // policies, so only read paths inside the caller's own folder.
+    const path: string = record.file_url || ''
+    if (!path.startsWith(`${user.id}/`) || path.includes('..')) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+    }
+
     // Without a marker the record page would say "Still processing" forever.
     // Only set it when there's nothing good to lose, so a failed retry doesn't
     // wipe details that were already extracted.
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
     // Download the file from Supabase Storage
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('medical-records')
-      .download(record.file_url)
+      .download(path)
 
     if (downloadError || !fileData) {
       await markFailed()
