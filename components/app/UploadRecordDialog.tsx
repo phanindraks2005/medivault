@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, Segmented } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { LIMITS } from '@/lib/limits'
 
 // The bucket accepts exactly these; anything else would fail after upload.
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf'
@@ -165,10 +166,10 @@ export default function UploadRecordDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id={`${id}-doctor`} label="Doctor" hint="Optional">
-              <Input id={`${id}-doctor`} autoComplete="off" placeholder="Read from the file…" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
+              <Input id={`${id}-doctor`} name="doctor" maxLength={LIMITS.doctor} autoComplete="off" placeholder="Read from the file…" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
             </Field>
             <Field id={`${id}-clinic`} label="Clinic" hint="Optional">
-              <Input id={`${id}-clinic`} autoComplete="off" placeholder="Read from the file…" value={clinic} onChange={(e) => setClinic(e.target.value)} />
+              <Input id={`${id}-clinic`} name="clinic" maxLength={LIMITS.clinic} autoComplete="off" placeholder="Read from the file…" value={clinic} onChange={(e) => setClinic(e.target.value)} />
             </Field>
           </div>
 

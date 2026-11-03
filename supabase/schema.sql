@@ -98,6 +98,44 @@ end
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Length limits (match lib/limits.ts) and safe file paths
+-- The browser writes these tables directly, so the database is the server-side
+-- check. NOT VALID: enforced on new and changed rows, existing rows are left alone.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  c record;
+begin
+  for c in
+    select * from (values
+      ('family_members',  'family_members_name_len',        'char_length(name) between 1 and 80'),
+      ('family_members',  'family_members_relation_len',    'char_length(relation) <= 30'),
+      ('family_members',  'family_members_gender_len',      'char_length(gender) <= 20'),
+      ('family_members',  'family_members_blood_group_len', 'char_length(blood_group) <= 3'),
+      ('family_members',  'family_members_allergies_len',   'char_length(allergies) <= 500'),
+      ('family_members',  'family_members_conditions_len',  'char_length(known_conditions) <= 500'),
+      ('family_members',  'family_members_ec_name_len',     'char_length(emergency_contact_name) <= 80'),
+      ('family_members',  'family_members_ec_phone_len',    'char_length(emergency_contact_phone) <= 20'),
+      ('medical_records', 'medical_records_doctor_len',     'char_length(doctor_name) <= 100'),
+      ('medical_records', 'medical_records_hospital_len',   'char_length(hospital_name) <= 120'),
+      ('medical_records', 'medical_records_type',           $c$record_type in ('prescription', 'lab_report', 'other')$c$),
+      -- A record may only point at a file in its owner's folder.
+      ('medical_records', 'medical_records_own_file',       $c$file_url like user_id::text || '/%' and file_url not like '%..%'$c$),
+      ('medical_records', 'medical_records_extracted_size', 'pg_column_size(extracted_data) <= 32768'),
+      ('vaccinations',    'vaccinations_name_len',          'char_length(vaccine_name) between 1 and 100'),
+      ('vaccinations',    'vaccinations_notes_len',         'char_length(notes) <= 500'),
+      ('vaccinations',    'vaccinations_has_date',          'date_given is not null or next_due_date is not null'),
+      ('chat_history',    'chat_history_content_len',       'char_length(content) <= 20000')
+    ) as t(tbl, name, expr)
+  loop
+    execute format('alter table public.%I drop constraint if exists %I', c.tbl, c.name);
+    execute format('alter table public.%I add constraint %I check (%s) not valid', c.tbl, c.name, c.expr);
+  end loop;
+end
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Storage: private bucket, files live under <user_id>/...
 -- ---------------------------------------------------------------------------
 

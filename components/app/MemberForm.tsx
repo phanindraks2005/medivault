@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Field } from '@/components/app/kit'
+import { LIMITS } from '@/lib/limits'
 
 const RELATIONS = ['Mother', 'Father', 'Spouse', 'Daughter', 'Son', 'Sister', 'Brother', 'Grandmother', 'Grandfather', 'Other']
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -97,7 +98,7 @@ export default function MemberForm({
       className="grid gap-4 sm:grid-cols-2"
     >
       <Field id="m-name" label="Name" className="sm:col-span-2">
-        <Input id="m-name" name="name" autoComplete="off" value={v.name} onChange={(e) => set('name')(e.target.value)} required />
+        <Input id="m-name" name="name" maxLength={LIMITS.name} autoComplete="off" value={v.name} onChange={(e) => set('name')(e.target.value)} required />
       </Field>
       {!isSelf && (
         <Field id="m-relation" label="Relation" hint="Optional">
@@ -150,6 +151,7 @@ export default function MemberForm({
         <Input
           id="m-allergies"
           name="allergies"
+          maxLength={LIMITS.allergies}
           aria-describedby="m-allergies-hint"
           autoComplete="off"
           placeholder="e.g. Penicillin, peanuts…"
@@ -161,6 +163,7 @@ export default function MemberForm({
         <Input
           id="m-conditions"
           name="conditions"
+          maxLength={LIMITS.conditions}
           autoComplete="off"
           placeholder="e.g. Asthma…"
           value={v.known_conditions}
@@ -177,6 +180,7 @@ export default function MemberForm({
         <Input
           id="m-ec-name"
           name="emergency-contact"
+          maxLength={LIMITS.name}
           autoComplete="off"
           placeholder="Name…"
           value={v.emergency_contact_name}
@@ -187,6 +191,7 @@ export default function MemberForm({
         <Input
           id="m-ec-phone"
           name="emergency-phone"
+          maxLength={LIMITS.phone}
           type="tel"
           inputMode="tel"
           autoComplete="off"

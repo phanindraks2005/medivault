@@ -25,6 +25,7 @@ import DateLeaf from '@/components/app/DateLeaf'
 import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, Segmented } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { LIMITS } from '@/lib/limits'
 
 type RecordRow = {
   id: string
@@ -349,13 +350,13 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
             <Input id="r-date" name="record-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
           <Field id="r-doctor" label="Doctor">
-            <Input id="r-doctor" name="doctor" autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
+            <Input id="r-doctor" name="doctor" maxLength={LIMITS.doctor} autoComplete="off" value={doctor} onChange={(e) => setDoctor(e.target.value)} />
           </Field>
           <Field id="r-clinic" label="Clinic or hospital">
-            <Input id="r-clinic" name="clinic" autoComplete="off" value={clinic} onChange={(e) => setClinic(e.target.value)} />
+            <Input id="r-clinic" name="clinic" maxLength={LIMITS.clinic} autoComplete="off" value={clinic} onChange={(e) => setClinic(e.target.value)} />
           </Field>
           <Field id="r-notes" label="Notes">
-            <Textarea id="r-notes" name="notes" autoComplete="off" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Textarea id="r-notes" name="notes" maxLength={LIMITS.recordNotes} autoComplete="off" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </div>
       </Panel>
@@ -365,9 +366,9 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
         <ul className="mt-3 space-y-2">
           {meds.map((m, i) => (
             <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
-              <Input name={`medicine-${i}-name`} autoComplete="off" aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
-              <Input name={`medicine-${i}-dose`} autoComplete="off" aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
-              <Input name={`medicine-${i}-timing`} autoComplete="off" aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
+              <Input name={`medicine-${i}-name`} maxLength={LIMITS.medicineName} autoComplete="off" aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
+              <Input name={`medicine-${i}-dose`} maxLength={LIMITS.dose} autoComplete="off" aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
+              <Input name={`medicine-${i}-timing`} maxLength={LIMITS.frequency} autoComplete="off" aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
               <Button
                 type="button"
                 variant="ghost"

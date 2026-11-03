@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ease } from '@/lib/motion'
+import { LIMITS } from '@/lib/limits'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const GENDERS = ['Female', 'Male', 'Other']
@@ -120,7 +121,7 @@ export default function OnboardingPage() {
                 <p className="mt-2 text-ink-2">This becomes your own profile. You&apos;ll add family members next.</p>
                 <div className="mt-7 space-y-5">
                   <Field id="name" label="Your name">
-                    <Input id="name" name="name" autoComplete="name" value={form.name} onChange={(e) => set('name')(e.target.value)} required />
+                    <Input id="name" name="name" maxLength={LIMITS.name} autoComplete="name" value={form.name} onChange={(e) => set('name')(e.target.value)} required />
                   </Field>
                   <Field id="dob" label="Date of birth">
                     <Input id="dob" name="dob" type="date" autoComplete="bday" value={form.dob} onChange={(e) => set('dob')(e.target.value)} />
@@ -163,10 +164,10 @@ export default function OnboardingPage() {
                 <p className="mt-2 text-ink-2">All optional. These show up on your emergency card.</p>
                 <div className="mt-7 space-y-5">
                   <Field id="allergies" label="Allergies" hint="Separate with commas">
-                    <Input id="allergies" name="allergies" aria-describedby="allergies-hint" autoComplete="off" placeholder="e.g. Penicillin, peanuts…" value={form.allergies} onChange={(e) => set('allergies')(e.target.value)} />
+                    <Input id="allergies" name="allergies" maxLength={LIMITS.allergies} aria-describedby="allergies-hint" autoComplete="off" placeholder="e.g. Penicillin, peanuts…" value={form.allergies} onChange={(e) => set('allergies')(e.target.value)} />
                   </Field>
                   <Field id="conditions" label="Known conditions">
-                    <Input id="conditions" name="conditions" autoComplete="off" placeholder="e.g. Asthma…" value={form.knownConditions} onChange={(e) => set('knownConditions')(e.target.value)} />
+                    <Input id="conditions" name="conditions" maxLength={LIMITS.conditions} autoComplete="off" placeholder="e.g. Asthma…" value={form.knownConditions} onChange={(e) => set('knownConditions')(e.target.value)} />
                   </Field>
                   <div className="grid grid-cols-2 gap-4">
                     <Field id="height" label="Height (cm)">
@@ -178,10 +179,10 @@ export default function OnboardingPage() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field id="ec-name" label="Emergency contact">
-                      <Input id="ec-name" name="emergency-contact" autoComplete="off" placeholder="Name…" value={form.emergencyContactName} onChange={(e) => set('emergencyContactName')(e.target.value)} />
+                      <Input id="ec-name" name="emergency-contact" maxLength={LIMITS.name} autoComplete="off" placeholder="Name…" value={form.emergencyContactName} onChange={(e) => set('emergencyContactName')(e.target.value)} />
                     </Field>
                     <Field id="ec-phone" label="Their phone">
-                      <Input id="ec-phone" name="emergency-phone" type="tel" inputMode="tel" autoComplete="off" placeholder="98450 12345…" value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone')(e.target.value)} />
+                      <Input id="ec-phone" name="emergency-phone" maxLength={LIMITS.phone} type="tel" inputMode="tel" autoComplete="off" placeholder="98450 12345…" value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone')(e.target.value)} />
                     </Field>
                   </div>
                 </div>

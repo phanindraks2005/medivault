@@ -25,6 +25,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import DateLeaf from '@/components/app/DateLeaf'
 import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, RowsSkeleton } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { LIMITS } from '@/lib/limits'
 
 type Vax = { id: string; vaccine_name: string; date_given: string | null; next_due_date: string | null; notes: string | null }
 
@@ -261,7 +262,7 @@ function AddVaccination({
         </DialogHeader>
         <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <Field id="v-name" label="Vaccine" className="sm:col-span-2">
-            <Input id="v-name" name="vaccine" autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
+            <Input id="v-name" name="vaccine" maxLength={LIMITS.vaccine} autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
           </Field>
           <Field id="v-given" label="Date given">
             <Input id="v-given" name="date-given" type="date" value={given} onChange={(e) => setGiven(e.target.value)} />
@@ -270,7 +271,7 @@ function AddVaccination({
             <Input id="v-next" name="next-due" type="date" value={next} onChange={(e) => setNext(e.target.value)} />
           </Field>
           <Field id="v-notes" label="Notes" hint="Optional" className="sm:col-span-2">
-            <Textarea id="v-notes" name="notes" autoComplete="off" rows={2} placeholder="Clinic, batch number…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Textarea id="v-notes" name="notes" maxLength={LIMITS.vaccineNotes} autoComplete="off" rows={2} placeholder="Clinic, batch number…" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           {error && (
             <p role="alert" className="rounded-lg bg-red-soft px-4 py-3 text-[15px] text-red-ink sm:col-span-2">
