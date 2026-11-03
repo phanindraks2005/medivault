@@ -31,6 +31,7 @@ import UploadRecordDialog from '@/components/app/UploadRecordDialog'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
 import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { readState } from '@/lib/records'
 import { usePageTitle } from '@/lib/use-page-title'
 
 type FullMember = {
@@ -113,7 +114,8 @@ function Member({ id }: { id: string }) {
   }, [load])
 
   // While anything is still being read, check again every few seconds.
-  const pending = records.some((r) => !r.extracted_data)
+  // Stuck records stop the polling; they get "Needs a retry" instead.
+  const pending = records.some((r) => readState(r) === 'reading')
   useEffect(() => {
     if (!pending) return
     const t = setInterval(loadRecords, 4000)
@@ -385,11 +387,13 @@ function Member({ id }: { id: string }) {
             <ul className="mt-3 space-y-2">
               {records.map((r) => {
                 const meds = r.extracted_data?.medicines?.map((m) => m.name).filter(Boolean) || []
-                const st = !r.extracted_data
-                  ? { label: 'Reading…', variant: 'due' as const }
-                  : r.extracted_data.error
-                    ? { label: 'Needs a retry', variant: 'overdue' as const }
-                    : { label: 'Read', variant: 'ok' as const }
+                const state = readState(r)
+                const st =
+                  state === 'reading'
+                    ? { label: 'Reading…', variant: 'due' as const }
+                    : state === 'read'
+                      ? { label: 'Read', variant: 'ok' as const }
+                      : { label: 'Needs a retry', variant: 'overdue' as const }
                 return (
                   <li key={r.id}>
                     <Link href={`/profile/family/${id}/records/${r.id}`} className={cn(rowCard, 'flex min-h-[72px] items-center gap-3 px-3 py-2.5')}>
@@ -402,7 +406,15 @@ function Member({ id }: { id: string }) {
                           )}
                         </p>
                         <p className="truncate text-[13px] text-ink-3">
-                          {meds.length ? meds.join(', ') : r.extracted_data?.error ? "The file couldn't be read" : r.extracted_data ? 'No medicines listed' : 'Reading the file…'}
+                          {meds.length
+                            ? meds.join(', ')
+                            : state === 'failed'
+                              ? "The file couldn't be read. Open it to try again"
+                              : state === 'stuck'
+                                ? "Reading didn't finish. Open it to try again"
+                                : state === 'read'
+                                  ? 'No medicines listed'
+                                  : 'Reading the file…'}
                           {!r.record_date && ` · uploaded ${formatDay(r.created_at)}`}
                         </p>
                       </div>

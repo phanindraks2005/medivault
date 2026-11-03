@@ -26,6 +26,7 @@ import DateLeaf from '@/components/app/DateLeaf'
 import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, Segmented } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { STUCK_AFTER_MS } from '@/lib/records'
 import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
 
@@ -39,10 +40,6 @@ type RecordRow = {
   file_url: string | null
   extracted_data: { error?: string; medicines?: Medicine[]; notes?: string | null; record_date?: string | null } | null
 }
-
-// Extraction normally finishes within a minute. Past this, a record still
-// without details almost certainly had its request lost, so offer a retry.
-const STUCK_AFTER_MS = 2 * 60 * 1000
 
 const TYPES = [
   { value: 'prescription', label: 'Prescription' },
@@ -97,11 +94,12 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   }, [record?.file_url])
 
   const reading = status === 'ready' && !record?.extracted_data
+  const stuck = reading && !!record && now - new Date(record.created_at).getTime() > STUCK_AFTER_MS
   useEffect(() => {
-    if (!reading) return
+    if (!reading || stuck) return
     const t = setInterval(load, 4000)
     return () => clearInterval(t)
-  }, [reading, load])
+  }, [reading, stuck, load])
 
   const retry = async () => {
     setRetrying(true)
@@ -135,7 +133,6 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   }
 
   const x = record?.extracted_data
-  const stuck = reading && record && now - new Date(record.created_at).getTime() > STUCK_AFTER_MS
   const date = record ? record.record_date || record.created_at : null
   const isPdf = record?.file_url?.toLowerCase().endsWith('.pdf')
 

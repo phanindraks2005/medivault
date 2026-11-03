@@ -15,6 +15,7 @@ import { ageFrom, allergyList, relationLabel } from '@/lib/family'
 import { dayLeaf, daysFromToday, dueLabel, formatDay, startOfToday } from '@/lib/dates'
 import { rise, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import { readState } from '@/lib/records'
 import { useHydrated } from '@/lib/use-hydrated'
 import type { CalendarEvent, MedicalRecord, Vaccination } from './types'
 
@@ -350,10 +351,9 @@ function RecordRow({ record, member, color, demo }: { record: MedicalRecord; mem
   const date = record.record_date || record.created_at
   const leaf = dayLeaf(date)
   const meds = record.extracted_data?.medicines?.map((m) => m.name).filter(Boolean) || []
-  let status: { label: string; variant: 'ok' | 'due' | 'overdue' }
-  if (!record.extracted_data) status = { label: 'Reading…', variant: 'due' }
-  else if (record.extracted_data.error) status = { label: 'Needs a retry', variant: 'overdue' }
-  else status = { label: 'Read', variant: 'ok' }
+  const state = readState(record)
+  const status: { label: string; variant: 'ok' | 'due' | 'overdue' } =
+    state === 'reading' ? { label: 'Reading…', variant: 'due' } : state === 'read' ? { label: 'Read', variant: 'ok' } : { label: 'Needs a retry', variant: 'overdue' }
 
   return (
     <Link
@@ -373,7 +373,7 @@ function RecordRow({ record, member, color, demo }: { record: MedicalRecord; mem
               {member.name.split(' ')[0]} ·{' '}
             </>
           )}
-          {meds.length ? meds.join(', ') : record.extracted_data?.error ? "The file couldn't be read" : 'No medicines listed'}
+          {meds.length ? meds.join(', ') : state === 'failed' ? "The file couldn't be read" : state === 'stuck' ? "Reading didn't finish" : 'No medicines listed'}
           {!record.record_date && ` · uploaded ${formatDay(record.created_at)}`}
         </p>
       </div>
