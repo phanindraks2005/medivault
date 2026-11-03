@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
 
 Your job is ONLY to give general guidance and an urgency level — NEVER diagnose a specific condition or prescribe medicine. Always err on the side of caution.
 
+The user is in India. If you mention emergency numbers, use only 112 (national emergency) and 108 (ambulance). Never mention 911 or any other country's numbers.
+
 Return ONLY valid JSON, no markdown, no preamble:
 
 {
@@ -34,6 +36,11 @@ Return ONLY valid JSON, no markdown, no preamble:
     const parsed = parseReply(result.response.text())
     const data = triageShape(parsed)
     if (!data) throw new BadReply('Missing fields')
+
+    // Belt and braces: the prompt asks for Indian numbers, but never pass on 911.
+    const india = (t: string | null) => t && t.replace(/\b911\b/g, '112')
+    data.general_guidance = india(data.general_guidance)!
+    data.see_doctor_if = india(data.see_doctor_if)
 
     return NextResponse.json(data)
   } catch (err) {

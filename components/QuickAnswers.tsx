@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Languages, Loader2, Pill, Stethoscope } from 'lucide-react'
+import { Languages, Loader2, Phone, Pill, Stethoscope } from 'lucide-react'
 import { toast } from 'sonner'
 import { authHeaders } from '@/lib/supabase'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { ease } from '@/lib/motion'
@@ -216,6 +216,16 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                 {triage.urgency_label}
               </Badge>
               <p className="mt-3">{triage.general_guidance}</p>
+              {triage.urgency === 'urgent' && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href="tel:112" className={buttonVariants({ variant: 'destructive', size: 'sm' })}>
+                    <Phone aria-hidden="true" /> Call 112 (emergency)
+                  </a>
+                  <a href="tel:108" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    <Phone aria-hidden="true" /> Call 108 (ambulance)
+                  </a>
+                </div>
+              )}
               {triage.see_doctor_if && (
                 <p className="mt-2">
                   <span className="font-semibold">See a doctor if </span>
