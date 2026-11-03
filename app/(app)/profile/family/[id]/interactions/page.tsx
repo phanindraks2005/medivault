@@ -12,6 +12,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { LIMITS } from '@/lib/limits'
 
 type Severity = 'none' | 'minor' | 'moderate' | 'major'
 type Result = {
@@ -73,6 +74,7 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
 
   const check = async () => {
     if (toCheck.length < 2) return setError('Choose at least two medicines to check against each other.')
+    if (toCheck.length > LIMITS.medicines) return setError(`Check up to ${LIMITS.medicines} medicines at a time. Tap some to leave them out.`)
     setChecking(true)
     setError('')
     setResult(null)
@@ -170,7 +172,7 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
             <label htmlFor="new-med" className="sr-only">
               A new medicine to check
             </label>
-            <Input id="new-med" name="new-medicine" autoComplete="off" spellCheck={false} placeholder="A new medicine, e.g. Azithromycin…" value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <Input id="new-med" maxLength={LIMITS.medicineName} name="new-medicine" autoComplete="off" spellCheck={false} placeholder="A new medicine, e.g. Azithromycin…" value={draft} onChange={(e) => setDraft(e.target.value)} />
             <Button type="submit" variant="outline">
               <Plus aria-hidden="true" /> Add
             </Button>

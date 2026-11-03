@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { BadReply, parseReply, triageShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
+import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,11 +11,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { symptoms } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const symptoms = text(body.symptoms, LIMITS.symptoms)
+    if (!symptoms) return badInput(`Describe the symptoms in up to ${LIMITS.symptoms} characters.`)
 
-    if (!symptoms) {
-      return NextResponse.json({ error: 'Missing symptoms' }, { status: 400 })
-    }
+    const limited = await spendAiQuota(user)
+    if (limited) return limited
 
     const prompt = `You are a cautious health guidance assistant, NOT a doctor. A user describes these symptoms: "${symptoms}"
 

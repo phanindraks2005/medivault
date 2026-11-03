@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { BadReply } from '@/lib/ai-shape'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
+import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 import type { Medicine } from '@/components/dashboard/types'
+
+// How many of the latest messages are sent with each question.
+const RECENT_TURNS = 12
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,9 +22,20 @@ export async function POST(req: NextRequest) {
     const today = typeof clientToday === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(clientToday) ? clientToday : new Date().toISOString().slice(0, 10)
     const daysUntil = (date: string) => Math.round((Date.parse(date) - Date.parse(today)) / 86_400_000)
 
-    if (!messages) {
-      return NextResponse.json({ error: 'Missing messages' }, { status: 400 })
+    // Only recent turns go to the model; older ones add cost, not much context.
+    const valid =
+      Array.isArray(messages) &&
+      messages.length > 0 &&
+      messages.every((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    if (!valid) return badInput('Missing messages')
+    const recent: { role: 'user' | 'assistant'; content: string }[] = messages.slice(-RECENT_TURNS)
+    const question = text(recent[recent.length - 1].content, LIMITS.question)
+    if (recent[recent.length - 1].role !== 'user' || !question) {
+      return badInput(`Ask a question of up to ${LIMITS.question} characters.`)
     }
+
+    const limited = await spendAiQuota(user)
+    if (limited) return limited
 
     // Gather full family + records context
     const { data: members } = await supabaseAdmin
@@ -81,15 +96,23 @@ Today's date is ${today}. When asked what is due, list overdue doses first, then
 FAMILY HEALTH DATA:
 ${contextBlock || 'No family members or records added yet.'}`
 
-    const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    }))
+    // Gemini wants history to start with the user and alternate. Questions
+    // that never got an answer leave two user turns in a row, so merge those.
+    const history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
+    for (const m of recent.slice(0, -1)) {
+      const role = m.role === 'user' ? 'user' : 'model'
+      const content = m.content.slice(0, LIMITS.question * 2)
+      const last = history[history.length - 1]
+      if (!last && role === 'model') continue
+      if (last?.role === role) last.parts[0].text += `
 
-    const lastMessage = messages[messages.length - 1]
+${content}`
+      else history.push({ role, parts: [{ text: content }] })
+    }
+    if (history[history.length - 1]?.role === 'user') history.push({ role: 'model', parts: [{ text: '(No answer was given.)' }] })
 
     const result = await generate(
-      (model) => model.startChat({ history }).sendMessage(lastMessage.content),
+      (model) => model.startChat({ history }).sendMessage(question),
       { systemInstruction: systemPrompt }
     )
     const responseText = result.response.text()

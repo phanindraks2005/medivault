@@ -12,6 +12,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { ease } from '@/lib/motion'
+import { LIMITS } from '@/lib/limits'
 
 type MedicineResult = {
   name: string
@@ -136,6 +137,7 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                 <Label htmlFor="qa-medicine" className="sr-only">Medicine name</Label>
                 <Input
                   id="qa-medicine"
+                  maxLength={LIMITS.medicineName}
                   name="medicine"
                   autoComplete="off"
                   placeholder="Brand or generic name, e.g. Dolo 650…"
@@ -150,6 +152,7 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                 <Label htmlFor="qa-symptoms" className="sr-only">Symptoms</Label>
                 <Textarea
                   id="qa-symptoms"
+                  maxLength={LIMITS.symptoms}
                   name="symptoms"
                   placeholder="What's wrong, since when, how bad? e.g. sore throat for two days, no fever…"
                   value={symptoms}
@@ -164,6 +167,7 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                 <Label htmlFor="qa-note" className="sr-only">Doctor&apos;s note or lab result</Label>
                 <Textarea
                   id="qa-note"
+                  maxLength={LIMITS.note}
                   name="note"
                   placeholder="Paste a doctor's note or lab result, e.g. HbA1c 7.8%, continue OHA…"
                   value={noteText}

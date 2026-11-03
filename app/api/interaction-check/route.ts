@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { BadReply, parseReply, interactionShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
+import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,15 +11,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { medicines } = await req.json()
-
-    if (!medicines || !Array.isArray(medicines) || medicines.length < 2) {
-      return NextResponse.json({ error: 'Need at least 2 medicines to check' }, { status: 400 })
+    const body = await req.json().catch(() => ({}))
+    const list: unknown[] = Array.isArray(body.medicines) ? body.medicines : []
+    const medicines = list.map((m) => text(m, LIMITS.medicineName))
+    if (medicines.length < 2 || medicines.length > LIMITS.medicines || medicines.some((m) => !m)) {
+      return badInput(`Check between 2 and ${LIMITS.medicines} medicines, each up to ${LIMITS.medicineName} characters.`)
     }
+
+    const limited = await spendAiQuota(user)
+    if (limited) return limited
 
     const prompt = `You are a cautious medication safety assistant. Check the following list of medicines for potential interactions with each other:
 
-${medicines.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n')}
+${medicines.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
 Return ONLY valid JSON, no markdown, no preamble:
 

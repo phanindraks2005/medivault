@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
+import { badInput, spendAiQuota, text } from '@/lib/ai-guard'
 import { BadReply, extractionShape, parseReply } from '@/lib/ai-shape'
 
 export async function POST(req: NextRequest) {
@@ -10,11 +11,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { recordId } = await req.json()
-
-    if (!recordId) {
-      return NextResponse.json({ error: 'Missing recordId' }, { status: 400 })
-    }
+    const body = await req.json().catch(() => ({}))
+    const recordId = text(body.recordId, 64)
+    if (!recordId) return badInput('Missing recordId')
 
     // Look the record up by owner too, and use its stored path rather than
     // one supplied by the client.
@@ -46,6 +45,12 @@ export async function POST(req: NextRequest) {
         .update({ extracted_data: { error: 'extraction_failed' } })
         .eq('id', recordId)
         .eq('user_id', user.id)
+    }
+
+    const limited = await spendAiQuota(user)
+    if (limited) {
+      await markFailed()
+      return limited
     }
 
     // Download the file from Supabase Storage

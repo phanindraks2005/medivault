@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { BadReply, parseReply, summaryShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
+import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 import type { Medicine } from '@/components/dashboard/types'
 
 type SummaryRecord = {
@@ -20,11 +21,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { memberName, records } = await req.json()
-
-    if (!records || records.length === 0) {
-      return NextResponse.json({ error: 'No records to summarize' }, { status: 400 })
+    const body = await req.json().catch(() => ({}))
+    const memberName = text(body.memberName, 100) || 'this family member'
+    const records = body.records
+    if (!Array.isArray(records) || records.length === 0) return badInput('There are no read records to summarise yet.')
+    // Records come from the page; cap how many and how much text reaches the model.
+    if (records.length > LIMITS.summaryRecords || JSON.stringify(records).length > 40_000) {
+      return badInput('That is too many records to summarise at once.')
     }
+
+    const limited = await spendAiQuota(user)
+    if (limited) return limited
 
     const recordsText = (records as SummaryRecord[]).map((r, i) => {
       const meds = r.medicines?.map((m) => `${m.name} (${m.dosage || 'dosage unknown'}, ${m.frequency || 'frequency unknown'})`).join(', ') || 'none listed'

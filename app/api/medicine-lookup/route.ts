@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { BadReply, parseReply, medicineShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
+import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,11 +11,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { medicineName } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const medicineName = text(body.medicineName, LIMITS.medicineName)
+    if (!medicineName) return badInput(`Enter a medicine name of up to ${LIMITS.medicineName} characters.`)
 
-    if (!medicineName) {
-      return NextResponse.json({ error: 'Missing medicine name' }, { status: 400 })
-    }
+    const limited = await spendAiQuota(user)
+    if (limited) return limited
 
     const prompt = `You are a medicine information assistant for an Indian audience. Give info about the medicine "${medicineName}". Return ONLY valid JSON, no markdown, no preamble:
 

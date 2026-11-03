@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { ease } from '@/lib/motion'
+import { LIMITS } from '@/lib/limits'
 import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -259,6 +260,7 @@ export default function DocPage() {
           </label>
           <textarea
             id="doc-input"
+            maxLength={LIMITS.question}
             name="question"
             autoComplete="off"
             ref={box}
