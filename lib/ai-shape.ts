@@ -118,8 +118,8 @@ export function extractionShape(v: unknown) {
     record_date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date)) ? date : null,
     medicines: meds
       .filter(isObj)
-      .map((m) => ({ name: str(m.name), dosage: str(m.dosage), frequency: str(m.frequency) }))
-      .filter((m): m is { name: string; dosage: string | null; frequency: string | null } => !!m.name),
+      .map((m) => ({ name: str(m.name), dosage: str(m.dosage), frequency: str(m.frequency), duration: str(m.duration) }))
+      .filter((m): m is { name: string; dosage: string | null; frequency: string | null; duration: string | null } => !!m.name),
     notes: str(v.notes),
   }
 }

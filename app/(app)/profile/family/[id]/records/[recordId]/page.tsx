@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { STUCK_AFTER_MS } from '@/lib/records'
 import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
+import { derivedEnd, medicineStatus, statusLabel } from '@/lib/medicines'
 
 type RecordRow = {
   id: string
@@ -224,6 +225,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
                         <th scope="col" className="px-4 py-2.5 font-medium">Medicine</th>
                         <th scope="col" className="px-4 py-2.5 font-medium">Dose</th>
                         <th scope="col" className="px-4 py-2.5 font-medium">When</th>
+                        <th scope="col" className="px-4 py-2.5 font-medium">Taking until</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -232,6 +234,9 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
                           <td className="px-4 py-3 font-medium">{m.name}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-ink-2 num">{m.dosage || <span className="text-ink-3">—</span>}</td>
                           <td className="px-4 py-3 text-ink-2">{m.frequency || <span className="text-ink-3">—</span>}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-ink-2 num">
+                            <MedicineEnd m={m} start={(record!.record_date || record!.created_at).slice(0, 10)} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -311,7 +316,14 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
   const [clinic, setClinic] = useState(record.hospital_name || '')
   const [date, setDate] = useState(record.record_date?.slice(0, 10) || '')
   const [notes, setNotes] = useState(record.extracted_data?.notes || '')
-  const [meds, setMeds] = useState<Medicine[]>(record.extracted_data?.medicines?.length ? record.extracted_data.medicines : [{ name: '', dosage: '', frequency: '' }])
+  const [meds, setMeds] = useState<EditMed[]>(() => {
+    const start = (record.record_date || record.created_at).slice(0, 10)
+    const list = record.extracted_data?.medicines?.length ? record.extracted_data.medicines : [{ name: '', dosage: '', frequency: '' }]
+    return list.map((m) => {
+      const s = medicineStatus(m, start, todayISO())
+      return { ...m, until: s.end || '', isOngoing: s.state === 'ongoing', touched: false }
+    })
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -324,13 +336,20 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  const setMed = (i: number, k: keyof Medicine, v: string) => setMeds((list) => list.map((m, j) => (j === i ? { ...m, [k]: v } : m)))
+  const setMed = (i: number, k: keyof EditMed, v: string | boolean) =>
+    setMeds((list) => list.map((m, j) => (j === i ? { ...m, [k]: v, touched: m.touched || k === 'until' || k === 'isOngoing' } : m)))
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
     if (date && date > todayISO()) {
       document.getElementById('r-date')?.focus()
       return setError('The date the doctor wrote it can’t be in the future.')
+    }
+    const start = date || record.created_at.slice(0, 10)
+    const early = meds.findIndex((m) => m.name?.trim() && !m.isOngoing && m.until && m.until < start)
+    if (early >= 0) {
+      document.getElementById(`medicine-${early}-until`)?.focus()
+      return setError('A medicine can’t end before the date the doctor wrote it.')
     }
     setBusy(true)
     setError('')
@@ -342,7 +361,7 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
         doctor_name: doctor.trim() || null,
         hospital_name: clinic.trim() || null,
         record_date: date || null,
-        extracted_data: { ...base, medicines: meds.filter((m) => m.name?.trim()), notes: notes.trim() || null },
+        extracted_data: { ...base, medicines: meds.filter((m) => m.name?.trim()).map((m) => toMedicine(m, start)), notes: notes.trim() || null },
       })
       .eq('id', record.id)
     setBusy(false)
@@ -379,24 +398,46 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
         <PanelHead id="edit-meds" title="Medicines" count={meds.filter((m) => m.name?.trim()).length} />
         <ul className="mt-3 space-y-2">
           {meds.map((m, i) => (
-            <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
-              <Input name={`medicine-${i}-name`} maxLength={LIMITS.medicineName} autoComplete="off" aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
-              <Input name={`medicine-${i}-dose`} maxLength={LIMITS.dose} autoComplete="off" aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
-              <Input name={`medicine-${i}-timing`} maxLength={LIMITS.frequency} autoComplete="off" aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Remove ${m.name || `medicine ${i + 1}`}`}
-                onClick={() => setMeds((list) => list.filter((_, j) => j !== i))}
-                className="order-2 sm:order-none"
-              >
-                <X aria-hidden="true" />
-              </Button>
+            <li key={i} className="rounded-lg border border-line bg-surface p-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
+                <Input name={`medicine-${i}-name`} maxLength={LIMITS.medicineName} autoComplete="off" aria-label={`Medicine ${i + 1} name`} placeholder="Name…" value={m.name || ''} onChange={(e) => setMed(i, 'name', e.target.value)} className="col-span-1" />
+                <Input name={`medicine-${i}-dose`} maxLength={LIMITS.dose} autoComplete="off" aria-label={`Medicine ${i + 1} dose`} placeholder="Dose…" value={m.dosage || ''} onChange={(e) => setMed(i, 'dosage', e.target.value)} className="order-3 sm:order-none" />
+                <Input name={`medicine-${i}-timing`} maxLength={LIMITS.frequency} autoComplete="off" aria-label={`Medicine ${i + 1} timing`} placeholder="When…" value={m.frequency || ''} onChange={(e) => setMed(i, 'frequency', e.target.value)} className="order-4 sm:order-none" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove ${m.name || `medicine ${i + 1}`}`}
+                  onClick={() => setMeds((list) => list.filter((_, j) => j !== i))}
+                  className="order-2 sm:order-none"
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <label htmlFor={`medicine-${i}-until`} className="text-[14px] text-ink-2">
+                  Taking until
+                </label>
+                <Input
+                  id={`medicine-${i}-until`}
+                  name={`medicine-${i}-until`}
+                  type="date"
+                  min={date || undefined}
+                  disabled={m.isOngoing}
+                  value={m.isOngoing ? '' : m.until}
+                  onChange={(e) => setMed(i, 'until', e.target.value)}
+                  className="w-auto"
+                />
+                <label className="flex min-h-10 items-center gap-2 text-[14px]">
+                  <input type="checkbox" name={`medicine-${i}-ongoing`} checked={m.isOngoing} onChange={(e) => setMed(i, 'isOngoing', e.target.checked)} className="size-4 accent-band" />
+                  Ongoing (no end date)
+                </label>
+                {m.duration && <span className="text-[13px] text-ink-3">Read as “{m.duration}”</span>}
+              </div>
             </li>
           ))}
         </ul>
-        <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setMeds((list) => [...list, { name: '', dosage: '', frequency: '' }])}>
+        <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setMeds((list) => [...list, { name: '', dosage: '', frequency: '', until: '', isOngoing: false, touched: false }])}>
           <Plus aria-hidden="true" /> Add a medicine
         </Button>
       </Panel>
@@ -417,4 +458,26 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
       </div>
     </form>
   )
+}
+
+type EditMed = Medicine & { until: string; isOngoing: boolean; touched: boolean }
+
+// Back to a stored medicine. Rows whose end wasn't touched keep what they had,
+// so a course length read from the file still counts from a corrected date.
+// A chosen date equal to the worked-out one isn't stored, for the same reason.
+function toMedicine({ until, isOngoing, touched, ...m }: EditMed, start: string): Medicine {
+  if (!touched) return m
+  const rest = { ...m }
+  delete rest.end_date
+  delete rest.ongoing
+  if (isOngoing) return { ...rest, ongoing: true }
+  const derived = derivedEnd(rest, start)
+  if (derived !== 'ongoing' && until === (derived || '')) return rest
+  return { ...rest, end_date: until || null }
+}
+
+function MedicineEnd({ m, start }: { m: Medicine; start: string }) {
+  const s = medicineStatus(m, start, todayISO())
+  if (s.state === 'unsure') return <span className="text-ink-3">No end date</span>
+  return <>{s.state === 'until' ? formatDay(s.end!) : statusLabel(s, formatDay)}</>
 }

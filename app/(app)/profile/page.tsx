@@ -8,7 +8,8 @@ import { toast } from 'sonner'
 import { saveError, supabase, userForSave } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
-import { dayLeaf, daysFromToday, dueLabel } from '@/lib/dates'
+import { dayLeaf, daysFromToday, dueLabel, todayISO } from '@/lib/dates'
+import { currentMedicines } from '@/lib/medicines'
 import { Button, ButtonLink } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -34,14 +35,14 @@ function Family() {
   const params = useSearchParams()
   const [adding, setAdding] = useState(params.get('add') === '1')
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
-  const [records, setRecords] = useState<Pick<MedicalRecord, 'family_member_id' | 'extracted_data'>[]>([])
+  const [records, setRecords] = useState<Pick<MedicalRecord, 'id' | 'family_member_id' | 'record_date' | 'created_at' | 'extracted_data'>[]>([])
   const [extra, setExtra] = useState<'loading' | 'ready' | 'error'>('loading')
 
   const load = useCallback(async () => {
     setExtra('loading')
     const [v, r] = await Promise.all([
       supabase.from('vaccinations').select('id, family_member_id, vaccine_name, date_given, next_due_date'),
-      supabase.from('medical_records').select('family_member_id, extracted_data'),
+      supabase.from('medical_records').select('id, family_member_id, record_date, created_at, extracted_data'),
     ])
     if (v.error || r.error) return setExtra('error')
     setVaccinations(v.data || [])
@@ -63,11 +64,7 @@ function Family() {
   const ordered = [...members].sort((a, b) => (a.relation?.toLowerCase() === 'self' ? -1 : b.relation?.toLowerCase() === 'self' ? 1 : 0))
   const loading = status === 'loading'
 
-  const meds = (id: string) => {
-    const set = new Set<string>()
-    for (const r of records) if (r.family_member_id === id) for (const m of r.extracted_data?.medicines || []) if (m?.name) set.add(m.name.toLowerCase())
-    return set.size
-  }
+  const meds = (id: string) => currentMedicines(records.filter((r) => r.family_member_id === id), todayISO()).length
   const next = (id: string) =>
     vaccinations
       .filter((v) => v.family_member_id === id && v.next_due_date)

@@ -9,7 +9,8 @@ import { OFFLINE_MESSAGE, isOffline, saveError, supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
-import { dayLeaf, daysFromToday, dueLabel, formatDay } from '@/lib/dates'
+import { dayLeaf, daysFromToday, dueLabel, formatDay, todayISO } from '@/lib/dates'
+import { addDays, medicinesByStatus, statusLabel, type ListedMedicine } from '@/lib/medicines'
 import { Button, ButtonLink } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -29,7 +30,7 @@ import DateLeaf from '@/components/app/DateLeaf'
 import MemberForm, { toRow, type MemberValues } from '@/components/app/MemberForm'
 import UploadRecordDialog from '@/components/app/UploadRecordDialog'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
-import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
+import type { MedicalRecord, Medicine, Vaccination } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
 import { readState } from '@/lib/records'
 import { usePageTitle } from '@/lib/use-page-title'
@@ -133,16 +134,21 @@ function Member({ id }: { id: string }) {
   const allergies = allergyList(member?.allergies)
   const conditions = allergyList(member?.known_conditions)
 
-  // Current medicines: each name once, from the most recent record that lists it.
-  const medicines: { name: string; dosage?: string | null; frequency?: string | null; date: string; recordId: string }[] = []
-  const seen = new Set<string>()
-  for (const r of records) {
-    for (const m of r.extracted_data?.medicines || []) {
-      const key = m?.name?.toLowerCase()
-      if (!key || seen.has(key)) continue
-      seen.add(key)
-      medicines.push({ ...m, date: r.record_date || r.created_at, recordId: r.id })
-    }
+  // Current medicines: each name once from its newest record, finished courses set aside.
+  const { current: medicines, ended } = medicinesByStatus(records, todayISO())
+  const [showEnded, setShowEnded] = useState(false)
+
+  // "Still taking" / "Stopped" on a medicine with no end date: saved on the record it came from.
+  const settle = async (m: ListedMedicine, patch: Partial<Medicine>) => {
+    const record = records.find((r) => r.id === m.recordId)
+    if (!record?.extracted_data) return
+    const key = m.name.trim().toLowerCase()
+    const list = (record.extracted_data.medicines || []).map((x) => (x.name?.trim().toLowerCase() === key ? { ...x, ...patch } : x))
+    const extracted_data = { ...record.extracted_data, medicines: list }
+    const { error } = await supabase.from('medical_records').update({ extracted_data }).eq('id', record.id)
+    if (error) return toast.error(saveError("Couldn't save. Try again."))
+    setRecords((rs) => rs.map((r) => (r.id === record.id ? { ...r, extracted_data } : r)))
+    toast.success(patch.ongoing ? `${m.name} marked as ongoing` : `${m.name} moved to finished`)
   }
 
   const upcoming = vaccinations
@@ -311,23 +317,38 @@ function Member({ id }: { id: string }) {
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
         <Panel labelledBy="meds" className="lg:col-span-6">
-          <PanelHead id="meds" title="Current medicines" count={status === 'ready' ? medicines.length : undefined} hint="From the latest record that lists each one" />
+          <PanelHead id="meds" title="Current medicines" count={status === 'ready' ? medicines.length : undefined} hint="Ongoing, or a course that hasn't ended" />
           {status === 'loading' && <RowsSkeleton count={3} height={56} />}
-          {status === 'ready' && medicines.length === 0 && <EmptyLine>Medicines appear here once a prescription has been read.</EmptyLine>}
+          {status === 'ready' && medicines.length === 0 && (
+            <EmptyLine>{ended.length ? 'Every course on record has ended.' : 'Medicines appear here once a prescription has been read.'}</EmptyLine>
+          )}
           {status === 'ready' && medicines.length > 0 && (
             <ul className="mt-3 overflow-hidden rounded-lg border border-line bg-surface">
-              {medicines.slice(0, 6).map((m, i) => (
-                <li key={m.name} className={cn('flex items-center gap-3 px-3.5 py-3', i > 0 && 'border-t border-line')}>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-medium">
-                      {m.name} {m.dosage && <span className="font-normal text-ink-2 num">{m.dosage}</span>}
-                    </p>
-                    {m.frequency && <p className="truncate text-[13px] text-ink-3">{m.frequency}</p>}
-                  </div>
-                  <span className="shrink-0 text-[13px] text-ink-3 num">{formatDay(m.date)}</span>
-                </li>
+              {medicines.map((m, i) => (
+                <MedicineRow key={m.name} m={m} href={`/profile/family/${id}/records/${m.recordId}`} first={i === 0} onSettle={settle} />
               ))}
             </ul>
+          )}
+          {status === 'ready' && ended.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowEnded((v) => !v)}
+                aria-expanded={showEnded}
+                aria-controls="ended-meds"
+                className="mt-3 inline-flex min-h-10 items-center gap-1 text-[14px] font-medium text-band underline-offset-4 hover:underline"
+              >
+                <ChevronRight className={cn('size-4 transition-transform', showEnded && 'rotate-90')} aria-hidden="true" />
+                {showEnded ? 'Hide' : 'Show'} {ended.length} finished {ended.length === 1 ? 'course' : 'courses'}
+              </button>
+              {showEnded && (
+                <ul id="ended-meds" className="mt-1 overflow-hidden rounded-lg border border-line bg-surface">
+                  {ended.map((m, i) => (
+                    <MedicineRow key={m.name} m={m} href={`/profile/family/${id}/records/${m.recordId}`} first={i === 0} />
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </Panel>
 
@@ -563,6 +584,43 @@ function Member({ id }: { id: string }) {
         </>
       )}
     </Page>
+  )
+}
+
+// One medicine: name and dose, timing, and when it ends. One with no end date
+// asks whether it's still being taken; the answer is saved on its record.
+function MedicineRow({ m, href, first, onSettle }: { m: ListedMedicine; href: string; first: boolean; onSettle?: (m: ListedMedicine, patch: Partial<Medicine>) => Promise<unknown> }) {
+  const [busy, setBusy] = useState(false)
+  const answer = async (patch: Partial<Medicine>) => {
+    setBusy(true)
+    await onSettle?.(m, patch)
+    setBusy(false)
+  }
+  return (
+    <li className={cn('px-3.5 py-3', !first && 'border-t border-line')}>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <Link href={href} className="block truncate text-[15px] font-medium hover:underline">
+            {m.name} {m.dosage && <span className="font-normal text-ink-2 num">{m.dosage}</span>}
+          </Link>
+          {m.frequency && <p className="truncate text-[13px] text-ink-3">{m.frequency}</p>}
+        </div>
+        <span className={cn('shrink-0 text-[13px] num', m.state === 'ended' ? 'text-ink-3' : 'text-ink-2')}>{statusLabel(m, formatDay)}</span>
+      </div>
+      {m.state === 'unsure' && onSettle && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md bg-due-soft px-3 py-2">
+          <p className="text-[13px] text-due-ink">Check if still taking</p>
+          <div className="ml-auto flex gap-1.5">
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => answer({ ongoing: true, end_date: null })}>
+              Still taking
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => answer({ ongoing: false, end_date: addDays(todayISO(), -1) })}>
+              Stopped
+            </Button>
+          </div>
+        </div>
+      )}
+    </li>
   )
 }
 

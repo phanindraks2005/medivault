@@ -4,6 +4,7 @@ import { BadReply } from '@/lib/ai-shape'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 import { LIMITS, badInput, spendAiQuota, text } from '@/lib/ai-guard'
 import type { Medicine } from '@/components/dashboard/types'
+import { medicineStatus } from '@/lib/medicines'
 
 // How many of the latest messages are sent with each question.
 const RECENT_TURNS = 12
@@ -63,10 +64,14 @@ export async function POST(req: NextRequest) {
       return `  - ${v.vaccine_name}${v.date_given ? ` · given ${v.date_given}` : ''}${due}${v.notes ? ` · ${v.notes}` : ''}`
     }
 
+    const courseLine = (s: ReturnType<typeof medicineStatus>) =>
+      s.state === 'ongoing' ? 'ongoing' : s.state === 'until' ? `taking until ${s.end}` : s.state === 'ended' ? `course ended ${s.end}, no longer taking` : 'end date not known'
+
     const contextBlock = (members || []).map((m) => {
       const memberRecords = (records || []).filter((r) => r.family_member_id === m.id)
       const recordSummaries = memberRecords.map((r) => {
-        const meds = r.extracted_data?.medicines?.map((med: Medicine) => `${med.name} (${med.dosage || 'dosage unknown'}, ${med.frequency || 'frequency unknown'})`).join('; ') || 'none extracted'
+        const start = (r.record_date || r.created_at).slice(0, 10)
+        const meds = r.extracted_data?.medicines?.map((med: Medicine) => `${med.name} (${med.dosage || 'dosage unknown'}, ${med.frequency || 'frequency unknown'}, ${courseLine(medicineStatus(med, start, today))})`).join('; ') || 'none extracted'
         return `  - [${r.record_type}] ${r.record_date || `uploaded ${new Date(r.created_at).toLocaleDateString('en-IN')}`} · Doctor: ${r.doctor_name || 'unknown'} · Hospital: ${r.hospital_name || 'unknown'} · Medicines: ${meds}${r.extracted_data?.notes ? ` · Notes: ${r.extracted_data.notes}` : ''}`
       }).join('\n')
       const memberVaccines = (vaccinations || []).filter((v) => v.family_member_id === m.id).map(vaccineLine).join('\n')

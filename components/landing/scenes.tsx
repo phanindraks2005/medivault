@@ -7,8 +7,9 @@ import DashboardView from '@/components/dashboard/DashboardView'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import { Badge } from '@/components/ui/badge'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
-import { dayLeaf, dueLabel, daysFromToday } from '@/lib/dates'
+import { dayLeaf, dueLabel, daysFromToday, todayISO } from '@/lib/dates'
 import { sampleColors, sampleMembers, sampleRecords, sampleVaccinations } from '@/lib/sample-family'
+import { currentMedicines } from '@/lib/medicines'
 import DateLeaf from '@/components/app/DateLeaf'
 import EmergencyCardView from '@/components/app/EmergencyCardView'
 import { ease } from '@/lib/motion'
@@ -187,10 +188,7 @@ export function DashboardScene({ width = 940, className }: { width?: number; cla
 }
 
 function medicinesFor(id: string) {
-  return sampleRecords
-    .filter((r) => r.family_member_id === id)
-    .flatMap((r) => r.extracted_data?.medicines || [])
-    .map((m) => [m.name, m.dosage].filter(Boolean).join(' '))
+  return currentMedicines(sampleRecords.filter((r) => r.family_member_id === id), todayISO()).map((m) => [m.name, m.dosage].filter(Boolean).join(' '))
 }
 
 const CONTACT: Record<string, string> = {

@@ -1,4 +1,13 @@
-export type Medicine = { name: string; dosage?: string | null; frequency?: string | null }
+// duration is the course length as written ("5 days"); end_date and ongoing
+// are set by the user (lib/medicines.ts works out the rest).
+export type Medicine = {
+  name: string
+  dosage?: string | null
+  frequency?: string | null
+  duration?: string | null
+  end_date?: string | null
+  ongoing?: boolean
+}
 
 export type Vaccination = {
   id: string

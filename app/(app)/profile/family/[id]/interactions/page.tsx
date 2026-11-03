@@ -5,13 +5,14 @@ import { Check, Loader2, Plus, RotateCw, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { aiMessage, askAi } from '@/lib/ai-client'
 import { useFamily } from '@/lib/family-context'
+import { currentMedicines } from '@/lib/medicines'
+import { todayISO } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
-import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
@@ -49,12 +50,10 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('medical_records').select('record_date, created_at, extracted_data').eq('family_member_id', id)
+    const { data, error } = await supabase.from('medical_records').select('id, record_date, created_at, extracted_data').eq('family_member_id', id)
     if (error) return setStatus('error')
-    const rows = (data || []).sort((a, b) => (b.record_date || b.created_at).localeCompare(a.record_date || a.created_at))
-    const names = new Map<string, string>()
-    for (const r of rows) for (const m of (r.extracted_data?.medicines || []) as Medicine[]) if (m?.name && !names.has(m.name.toLowerCase())) names.set(m.name.toLowerCase(), m.name)
-    const list = [...names.values()]
+    // Finished courses are left out; a new one can still be typed in below.
+    const list = currentMedicines(data || [], todayISO()).map((m) => m.name)
     setOnRecord(list)
     setIncluded(new Set(list))
     setStatus('ready')

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   "doctor_name": "string or null",
   "record_date": "YYYY-MM-DD or null",
   "medicines": [
-    { "name": "string", "dosage": "string or null", "frequency": "string or null" }
+    { "name": "string", "dosage": "string or null", "frequency": "string or null", "duration": "how long to take it, as written (e.g. \"5 days\", \"1 month\", \"continue\"), or null" }
   ],
   "notes": "any other relevant info as a short string, or null"
 }

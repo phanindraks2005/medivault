@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import { ErrorLine, Page, PageHeader } from '@/components/app/kit'
-import type { Medicine } from '@/components/dashboard/types'
+import { currentMedicines } from '@/lib/medicines'
+import { todayISO } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/use-page-title'
 
@@ -40,19 +41,12 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
         .select('name, dob, gender, blood_group, allergies, known_conditions, emergency_contact_name, emergency_contact_phone')
         .eq('id', id)
         .maybeSingle(),
-      supabase.from('medical_records').select('record_date, created_at, extracted_data').eq('family_member_id', id),
+      supabase.from('medical_records').select('id, record_date, created_at, extracted_data').eq('family_member_id', id),
     ])
     if (m.error || r.error || !m.data) return setStatus('error')
-    // Each medicine once, newest prescription first.
-    const rows = (r.data || []).sort((a, b) => (b.record_date || b.created_at).localeCompare(a.record_date || a.created_at))
-    const seen = new Map<string, string>()
-    for (const row of rows)
-      for (const med of (row.extracted_data?.medicines || []) as Medicine[]) {
-        const key = med?.name?.toLowerCase()
-        if (key && !seen.has(key)) seen.set(key, [med.name, med.dosage].filter(Boolean).join(' '))
-      }
+    // Only what's being taken now: ongoing, a course not yet over, or no end date known.
     setCard(m.data)
-    setMedicines([...seen.values()])
+    setMedicines(currentMedicines(r.data || [], todayISO()).map((med) => [med.name, med.dosage].filter(Boolean).join(' ')))
     setStatus('ready')
   }, [id])
 
@@ -187,7 +181,7 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
         </dl>
 
         <footer className="bg-canvas px-6 py-4 text-[14px] text-ink-3 sm:px-8 print:bg-white">
-          From MediVault{status === 'ready' && `, ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}. Medicines are as read from prescriptions; confirm with a doctor.
+          From MediVault{status === 'ready' && `, ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}. Medicines are the current ones read from prescriptions; confirm with a doctor.
         </footer>
       </article>
     </Page>

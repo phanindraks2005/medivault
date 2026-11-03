@@ -12,10 +12,11 @@ import MonthCalendar from '@/components/dashboard/MonthCalendar'
 import QuickAnswers from '@/components/QuickAnswers'
 import type { Member } from '@/lib/family-context'
 import { ageFrom, allergyList, relationLabel } from '@/lib/family'
-import { dayLeaf, daysFromToday, dueLabel, formatDay, startOfToday } from '@/lib/dates'
+import { dayLeaf, daysFromToday, dueLabel, formatDay, startOfToday, todayISO } from '@/lib/dates'
 import { rise, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { readState } from '@/lib/records'
+import { currentMedicines } from '@/lib/medicines'
 import { useHydrated } from '@/lib/use-hydrated'
 import type { CalendarEvent, MedicalRecord, Vaccination } from './types'
 
@@ -61,6 +62,7 @@ export default function DashboardView({ status, members, colors, vaccinations, r
     }
   }
   const medicineCount = Object.values(medicinesByMember).reduce((n, s) => n + s.size, 0)
+  const currentCount = (memberId: string) => currentMedicines(records.filter((r) => r.family_member_id === memberId), todayISO()).length
   const readCount = records.filter((r) => r.extracted_data && !r.extracted_data.error).length
   const unread = records.length - readCount
 
@@ -276,7 +278,7 @@ export default function DashboardView({ status, members, colors, vaccinations, r
                 .map((m) => {
                   const allergies = allergyList(m.allergies)
                   const age = ageFrom(m.dob)
-                  const meds = medicinesByMember[m.id]?.size || 0
+                  const meds = currentCount(m.id)
                   return (
                     <li key={m.id}>
                       <Link

@@ -35,20 +35,21 @@ export const sampleRecords: MedicalRecord[] = [
     id: 'r1', family_member_id: 'ramesh', record_type: 'prescription', record_date: day(-5), created_at: at(-4),
     doctor_name: 'Dr. Anita Rao', hospital_name: 'City Care Clinic',
     extracted_data: { medicines: [
-      { name: 'Amlodipine', dosage: '5 mg', frequency: 'Once daily, morning' },
-      { name: 'Metformin', dosage: '500 mg', frequency: 'Twice daily after meals' },
+      { name: 'Amlodipine', dosage: '5 mg', frequency: 'Once daily, morning', duration: 'Continue' },
+      { name: 'Metformin', dosage: '500 mg', frequency: 'Twice daily after meals', duration: '3 months' },
       { name: 'Atorvastatin', dosage: '10 mg', frequency: 'At night' },
     ] },
+    // Atorvastatin has no course length, so the demo shows "Check if still taking".
   },
   {
     id: 'r2', family_member_id: 'sunita', record_type: 'lab_report', record_date: day(-9), created_at: at(-9),
     doctor_name: 'Dr. Meera Iyer', hospital_name: 'Metro Diagnostics',
-    extracted_data: { medicines: [{ name: 'Levothyroxine', dosage: '50 mcg', frequency: 'Before breakfast' }] },
+    extracted_data: { medicines: [{ name: 'Levothyroxine', dosage: '50 mcg', frequency: 'Before breakfast', ongoing: true }] },
   },
   {
     id: 'r3', family_member_id: 'diya', record_type: 'prescription', record_date: day(-17), created_at: at(-17),
     doctor_name: 'Dr. Kavya Nair', hospital_name: 'Little Steps Paediatrics',
-    extracted_data: { medicines: [{ name: 'Paracetamol syrup', dosage: '5 ml', frequency: 'Every 6 hours if fever' }] },
+    extracted_data: { medicines: [{ name: 'Paracetamol syrup', dosage: '5 ml', frequency: 'Every 6 hours if fever', duration: '3 days' }] },
   },
   {
     id: 'r4', family_member_id: 'arjun', record_type: 'prescription', record_date: day(-41), created_at: at(-40),
