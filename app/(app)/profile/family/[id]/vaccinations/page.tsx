@@ -25,6 +25,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import DateLeaf from '@/components/app/DateLeaf'
 import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, RowsSkeleton } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
 
 type Vax = { id: string; vaccine_name: string; date_given: string | null; next_due_date: string | null; notes: string | null }
@@ -34,6 +35,7 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
   const { members, colors } = useFamily()
   const member = members.find((m) => m.id === id)
   const first = member?.name.split(' ')[0] || 'Back'
+  usePageTitle(member ? `${member.name}'s vaccinations` : null)
 
   const [list, setList] = useState<Vax[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')

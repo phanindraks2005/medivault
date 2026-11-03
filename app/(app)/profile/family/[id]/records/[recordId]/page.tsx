@@ -26,6 +26,7 @@ import DateLeaf from '@/components/app/DateLeaf'
 import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, Segmented } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
 
 type RecordRow = {
@@ -66,6 +67,7 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  usePageTitle(record ? [typeLabel(record.record_type), member?.name].filter(Boolean).join(' · ') : null)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase

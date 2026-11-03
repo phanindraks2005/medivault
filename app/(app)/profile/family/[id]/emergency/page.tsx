@@ -11,6 +11,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import { ErrorLine, Page, PageHeader } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/use-page-title'
 
 type Card = {
   name: string
@@ -30,6 +31,7 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
   const [card, setCard] = useState<Card | null>(null)
   const [medicines, setMedicines] = useState<string[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  usePageTitle(card ? `Emergency card · ${card.name}` : null)
 
   const load = useCallback(async () => {
     const [m, r] = await Promise.all([

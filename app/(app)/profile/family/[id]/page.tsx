@@ -31,6 +31,7 @@ import UploadRecordDialog from '@/components/app/UploadRecordDialog'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
 import type { MedicalRecord, Vaccination } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/use-page-title'
 
 type FullMember = {
   id: string
@@ -126,6 +127,7 @@ function Member({ id }: { id: string }) {
 
   const isSelf = member?.relation?.toLowerCase() === 'self'
   const first = member?.name.split(' ')[0] || ''
+  usePageTitle(member?.name)
   const allergies = allergyList(member?.allergies)
   const conditions = allergyList(member?.known_conditions)
 

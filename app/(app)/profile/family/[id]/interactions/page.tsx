@@ -13,6 +13,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
 import type { Medicine } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
 
 type Severity = 'none' | 'minor' | 'moderate' | 'major'
@@ -36,6 +37,7 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
   const { members, colors } = useFamily()
   const member = members.find((m) => m.id === id)
   const first = member?.name.split(' ')[0] || 'Back'
+  usePageTitle(member ? `Interaction check · ${member.name}` : null)
 
   const [onRecord, setOnRecord] = useState<string[]>([])
   const [included, setIncluded] = useState<Set<string>>(new Set())
