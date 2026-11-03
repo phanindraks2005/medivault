@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
+import { BadReply, parseReply, medicineShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -30,9 +31,13 @@ export async function POST(req: NextRequest) {
 If "${medicineName}" is not a recognizable medicine, return {"error": "Medicine not found. Please check the spelling or try another name."}`
 
     const result = await generate((model) => model.generateContent(prompt))
-    const responseText = result.response.text()
-    const cleaned = responseText.replace(/```json|```/g, '').trim()
-    const data = JSON.parse(cleaned)
+    const parsed = parseReply(result.response.text())
+    const notFound = (parsed as { error?: unknown } | null)?.error
+    if (typeof notFound === 'string') {
+      return NextResponse.json({ error: 'Medicine not found. Please check the spelling or try another name.' }, { status: 404 })
+    }
+    const data = medicineShape(parsed)
+    if (!data) throw new BadReply('Missing fields')
 
     return NextResponse.json(data)
   } catch (err) {

@@ -27,8 +27,8 @@ type TriageResult = {
   urgency: 'mild' | 'moderate' | 'urgent'
   urgency_label: string
   general_guidance: string
-  see_doctor_if: string
-  disclaimer?: string
+  see_doctor_if?: string | null
+  disclaimer?: string | null
 }
 
 type NoteResult = {
@@ -216,10 +216,12 @@ export default function QuickAnswers({ demo = false }: { demo?: boolean }) {
                 {triage.urgency_label}
               </Badge>
               <p className="mt-3">{triage.general_guidance}</p>
-              <p className="mt-2">
-                <span className="font-semibold">See a doctor if </span>
-                {triage.see_doctor_if.replace(/^./, (c) => c.toLowerCase())}
-              </p>
+              {triage.see_doctor_if && (
+                <p className="mt-2">
+                  <span className="font-semibold">See a doctor if </span>
+                  {triage.see_doctor_if.replace(/^./, (c) => c.toLowerCase())}
+                </p>
+              )}
               {triage.disclaimer && <p className="mt-3 text-[13.5px] text-ink-3">{triage.disclaimer}</p>}
             </Result>
           )}

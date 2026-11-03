@@ -5,6 +5,7 @@ import {
   GoogleGenerativeAIFetchError,
   ModelParams,
 } from '@google/generative-ai'
+import { BadReply, badReplyMessage } from '@/lib/ai-shape'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
@@ -42,6 +43,9 @@ export async function generate<T>(
 export function aiError(err: unknown, fallback: string) {
   if (err instanceof GoogleGenerativeAIAbortError) {
     return { message: 'This is taking longer than usual. Please try again in a minute.', status: 504 }
+  }
+  if (err instanceof BadReply) {
+    return { message: badReplyMessage, status: 502 }
   }
   if (isBusy(err)) {
     return { message: 'The AI service is busy right now. Please try again in a minute.', status: 503 }

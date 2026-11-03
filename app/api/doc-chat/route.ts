@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
+import { BadReply } from '@/lib/ai-shape'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
 import type { Medicine } from '@/components/dashboard/types'
 
@@ -90,6 +91,7 @@ ${contextBlock || 'No family members or records added yet.'}`
       { systemInstruction: systemPrompt }
     )
     const responseText = result.response.text()
+    if (!responseText.trim()) throw new BadReply('Empty reply')
 
     return NextResponse.json({ reply: responseText })
   } catch (err) {

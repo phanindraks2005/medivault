@@ -46,7 +46,7 @@ type FullMember = {
   emergency_contact_phone: string | null
 }
 
-type Summary = { overview: string; timeline?: { date: string; summary: string }[]; key_takeaway: string; disclaimer?: string }
+type Summary = { overview: string; timeline?: { date: string; summary: string }[]; key_takeaway?: string | null; disclaimer?: string | null }
 
 export default function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -466,10 +466,12 @@ function Member({ id }: { id: string }) {
               <div className="mt-3 grid gap-4 rounded-lg border border-line bg-surface p-5 lg:grid-cols-[1.2fr_1fr]">
                 <div>
                   <p className="text-[16px] leading-relaxed">{summary.overview}</p>
-                  <p className="mt-4 rounded-lg bg-due-soft px-4 py-3 text-[15px] text-due-ink">
-                    <span className="font-semibold">Worth mentioning: </span>
-                    {summary.key_takeaway}
-                  </p>
+                  {summary.key_takeaway && (
+                    <p className="mt-4 rounded-lg bg-due-soft px-4 py-3 text-[15px] text-due-ink">
+                      <span className="font-semibold">Worth mentioning: </span>
+                      {summary.key_takeaway}
+                    </p>
+                  )}
                   {summary.disclaimer && <p className="mt-3 text-[13px] text-ink-3">{summary.disclaimer}</p>}
                 </div>
                 {!!summary.timeline?.length && (

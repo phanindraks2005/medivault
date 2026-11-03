@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
+import { BadReply, parseReply, triageShape } from '@/lib/ai-shape'
 import { getUserFromRequest } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
@@ -30,9 +31,9 @@ Return ONLY valid JSON, no markdown, no preamble:
 }`
 
     const result = await generate((model) => model.generateContent(prompt))
-    const responseText = result.response.text()
-    const cleaned = responseText.replace(/```json|```/g, '').trim()
-    const data = JSON.parse(cleaned)
+    const parsed = parseReply(result.response.text())
+    const data = triageShape(parsed)
+    if (!data) throw new BadReply('Missing fields')
 
     return NextResponse.json(data)
   } catch (err) {

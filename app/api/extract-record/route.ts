@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generate, aiError } from '@/lib/gemini'
 import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-admin'
+import { BadReply, extractionShape, parseReply } from '@/lib/ai-shape'
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,9 +84,8 @@ If this doesn't look like a prescription or medical report, return {"error": "no
         { inlineData: { data: base64, mimeType } },
       ]))
 
-      const responseText = result.response.text()
-      const cleaned = responseText.replace(/```json|```/g, '').trim()
-      extracted = JSON.parse(cleaned)
+      extracted = extractionShape(parseReply(result.response.text()))
+      if (!extracted) throw new BadReply('Missing fields')
     } catch (err) {
       console.error('OCR extraction error:', err)
       await markFailed()
@@ -98,8 +98,8 @@ If this doesn't look like a prescription or medical report, return {"error": "no
       .from('medical_records')
       .update({
         extracted_data: extracted,
-        doctor_name: record.doctor_name || extracted.doctor_name || null,
-        record_date: extracted.record_date || null,
+        doctor_name: record.doctor_name || ('doctor_name' in extracted ? extracted.doctor_name : null),
+        record_date: 'record_date' in extracted ? extracted.record_date : null,
       })
       .eq('id', recordId)
       .eq('user_id', user.id)
