@@ -13,7 +13,7 @@ export default function DateLeaf({ day, month, tone = 'plain', size = 'md' }: { 
       <span
         className={cn(
           'w-full py-0.5 text-center text-[10.5px] font-bold tracking-[0.06em]',
-          tone === 'red' ? 'bg-red text-white' : tone === 'due' ? 'bg-due text-due-ink' : 'bg-band text-white'
+          tone === 'red' ? 'bg-red text-white' : tone === 'due' ? 'bg-due text-ink' : 'bg-band text-white'
         )}
       >
         {month}

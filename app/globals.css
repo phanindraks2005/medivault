@@ -20,7 +20,7 @@
   --slate-300: #c1ccd8;
   --ink-900: #0d253d;
   --ink-600: #425466;
-  --ink-500: #64748d;
+  --ink-500: #5b6b84; /* 4.5:1 or better on white, canvas and the #e6ebf1 active pill */
 
   /* Roles */
   --canvas: var(--slate-50);

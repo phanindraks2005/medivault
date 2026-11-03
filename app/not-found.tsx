@@ -15,7 +15,7 @@ export default function NotFound() {
         <Logo size={28} />
       </Link>
       <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col justify-center py-16">
-        <p className="font-display text-[88px] font-bold leading-none text-line-strong num" aria-hidden="true">
+        <p className="font-display text-[88px] font-bold leading-none text-ink-3 num" aria-hidden="true">
           404
         </p>
         <h1 className="mt-6 font-heading text-[32px] leading-tight tracking-[-0.03em]">This page isn&apos;t here</h1>
