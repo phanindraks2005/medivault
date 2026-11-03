@@ -16,7 +16,6 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [
@@ -25,14 +24,23 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  // Only over HTTPS; on localhost it would pin the dev server to https.
-  ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]),
 ];
+
+// HSTS applies to every port on a host, so sending it from a local
+// `next start` would force the dev server onto https too.
+const local = String.raw`(localhost|127\.0\.0\.1)(:\d+)?`;
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      {
+        source: "/(.*)",
+        missing: [{ type: "host", value: local }],
+        headers: [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }],
+      },
+    ];
   },
 };
 
