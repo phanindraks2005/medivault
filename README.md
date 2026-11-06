@@ -82,6 +82,10 @@ Run [`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor
 
 For local testing you can turn off email confirmation under Authentication → Sign In / Providers → Email.
 
+### Keep-alive
+
+`.github/workflows/supabase-keep-alive.yml` makes one small read query to Supabase every 3 days so a free project is not paused for inactivity. It needs two repository secrets (Settings → Secrets and variables → Actions): `SUPABASE_URL` (the project URL) and `SUPABASE_ANON_KEY` (the anon/publishable key). It can also be run by hand from the Actions tab.
+
 ### AI models
 
 All Gemini calls go through `lib/gemini.ts`. It uses `gemini-3.5-flash` and falls back to `gemini-3.5-flash-lite` when the first model is busy or out of quota, with a 25 second timeout. On the free tier each model allows about 20 requests a day, so heavy testing can hit the limit; the app then shows a "busy, try again" message instead of failing silently. A record whose extraction failed can be read again from its page with **Try again**.
