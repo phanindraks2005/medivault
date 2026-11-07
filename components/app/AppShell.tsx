@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
-import { CalendarDays, LogOut, MessageCircle, Plus, Users } from 'lucide-react'
+import { CalendarDays, Loader2, LogOut, MessageCircle, Plus, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/lib/family-context'
 import { relationLabel } from '@/lib/family'
@@ -206,7 +206,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
           )}
-          <main id="main" className="pb-24 lg:pb-0">{children}</main>
+          <main id="main" className="pb-24 lg:pb-0">
+            {/* Signed out: show nothing of the app (no forms, no dialogs) while the redirect to /auth runs. */}
+            {status === 'signed-out' ? (
+              <p role="status" className="flex items-center justify-center gap-2 py-24 text-[15px] text-ink-2">
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Taking you to log in…
+              </p>
+            ) : (
+              children
+            )}
+          </main>
         </div>
       </div>
 
