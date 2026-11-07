@@ -279,7 +279,7 @@ export default function DocPage() {
             placeholder="Ask about a medicine, a dose or someone's records…"
             className="max-h-[168px] min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-6 outline-none placeholder:text-ink-3"
           />
-          <Button type="submit" size="icon" aria-label="Send" disabled={sending || !userId}>
+          <Button type="submit" size="icon" aria-label="Send" disabled={sending || !userId || !input.trim()}>
             {sending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
           </Button>
         </div>
