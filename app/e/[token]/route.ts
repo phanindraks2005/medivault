@@ -102,7 +102,7 @@ function page(title: string, body: string) {
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <style>
 *{box-sizing:border-box;margin:0}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 body{font:400 21px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#0D253D;background:#fff;padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 main{max-width:640px;margin:0 auto;padding:0 20px}
 header{background:#0A2540;color:#fff;margin:0 -20px;padding:24px 20px 22px}
