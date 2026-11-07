@@ -83,6 +83,8 @@ export default function MemberForm({
 
   return (
     <form
+      // A stale message would sit next to a field that's already been fixed.
+      onChange={() => setError('')}
       onSubmit={async (e) => {
         e.preventDefault()
         if (!v.name.trim()) {

@@ -269,7 +269,7 @@ function AddVaccination({
           <DialogTitle>Add a vaccination for {name}</DialogTitle>
           <DialogDescription>A next-due date puts a reminder on the calendar.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={save} onChange={() => setError('')} className="grid gap-4 sm:grid-cols-2">
           <Field id="v-name" label="Vaccine" className="sm:col-span-2">
             <Input id="v-name" name="vaccine" maxLength={LIMITS.vaccine} autoComplete="off" placeholder="e.g. Influenza, MMR second dose…" value={vaccine} onChange={(e) => setVaccine(e.target.value)} required />
           </Field>

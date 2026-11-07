@@ -373,7 +373,14 @@ function EditRecord({ record, onCancel, onSaved }: { record: RecordRow; onCancel
   }
 
   return (
-    <form onSubmit={save} onChange={() => setDirty(true)} className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12">
+    <form
+      onSubmit={save}
+      onChange={() => {
+        setDirty(true)
+        setError('')
+      }}
+      className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12"
+    >
       <Panel labelledBy="edit-details" className="lg:col-span-5">
         <PanelHead id="edit-details" title="Details" />
         <div className="mt-4 grid gap-4">
