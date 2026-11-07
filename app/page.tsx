@@ -332,11 +332,11 @@ export default function Landing() {
           <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pt-10 sm:px-8 lg:px-10">
             <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
               <nav aria-label="Footer">
-                <ul className="space-y-2 text-[18px]">
-                  <li><Link href="/demo" className="hover:underline underline-offset-4">Try the demo</Link></li>
-                  <li><Link href="/auth?mode=signup" className="hover:underline underline-offset-4">Create an account</Link></li>
-                  <li><Link href="/auth" className="hover:underline underline-offset-4">Log in</Link></li>
-                  <li><a href={GITHUB} target="_blank" rel="noreferrer" className="hover:underline underline-offset-4">Source on GitHub</a></li>
+                <ul className="text-[18px]">
+                  <li><Link href="/demo" className="inline-flex min-h-11 items-center hover:underline underline-offset-4">Try the demo</Link></li>
+                  <li><Link href="/auth?mode=signup" className="inline-flex min-h-11 items-center hover:underline underline-offset-4">Create an account</Link></li>
+                  <li><Link href="/auth" className="inline-flex min-h-11 items-center hover:underline underline-offset-4">Log in</Link></li>
+                  <li><a href={GITHUB} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center hover:underline underline-offset-4">Source on GitHub</a></li>
                 </ul>
               </nav>
               <p className="max-w-[36ch] text-[18px] leading-relaxed text-white/85 sm:text-right">
