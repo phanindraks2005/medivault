@@ -41,5 +41,6 @@ export function demoFileUrl(path: string) {
   const record = t.medical_records.find((r) => r.file_url === path)
   if (!record) return null
   const member = t.family_members.find((m) => m.id === record.family_member_id)
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(prescriptionSvg(record, String(member?.name || '')))}`
+  // A blob link, not a data: URL: browsers refuse to open data: URLs in a new tab, so "Open" did nothing.
+  return URL.createObjectURL(new Blob([prescriptionSvg(record, String(member?.name || ''))], { type: 'image/svg+xml' }))
 }
