@@ -22,7 +22,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { leaveDemo } from '@/lib/demo/mode'
 
 const NAV = [
   { label: 'Today', href: '/dashboard', icon: CalendarDays },
@@ -50,10 +49,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   const logout = async () => {
-    if (demo) {
-      leaveDemo()
-      return router.push('/')
-    }
+    // The landing page ends the demo when it mounts. Ending it here instead would
+    // switch this page to the real client while it's still on screen, and its
+    // queries would go to Supabase with sample ids.
+    if (demo) return router.push('/')
     // This device only; the default would also sign out every other device.
     await supabase.auth.signOut({ scope: 'local' })
     router.push('/auth')
