@@ -299,7 +299,7 @@ function Member({ id }: { id: string }) {
                 )}
               </div>
             ) : (
-              <button onClick={() => setEditing(true)} className="text-left text-[15px] text-band underline-offset-4 hover:underline">
+              <button onClick={() => setEditing(true)} className="relative text-left text-[15px] text-band underline-offset-4 after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline">
                 Add one
               </button>
             )
@@ -594,7 +594,7 @@ function MedicineRow({ m, href, first, onSettle }: { m: ListedMedicine; href: st
     <li className={cn('px-3.5 py-3', !first && 'border-t border-line')}>
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <Link href={href} className="block truncate text-[15px] font-medium hover:underline">
+          <Link href={href} className="-my-1.5 block truncate py-1.5 text-[15px] font-medium hover:underline">
             {m.name} {m.dosage && <span className="font-normal text-ink-2 num">{m.dosage}</span>}
           </Link>
           {m.frequency && <p className="truncate text-[13px] text-ink-3">{m.frequency}</p>}
