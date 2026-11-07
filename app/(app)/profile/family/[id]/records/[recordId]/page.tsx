@@ -72,13 +72,15 @@ export default function RecordPage({ params }: { params: Promise<{ id: string; r
       .from('medical_records')
       .select('id, record_type, record_date, created_at, doctor_name, hospital_name, file_url, extracted_data')
       .eq('id', recordId)
+      // A record opened under another member's link would show their name on it.
+      .eq('family_member_id', id)
       .maybeSingle()
     setNow(Date.now())
     if (error) return setStatus('error')
     if (!data) return setStatus('missing')
     setRecord(data)
     setStatus('ready')
-  }, [recordId])
+  }, [id, recordId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
