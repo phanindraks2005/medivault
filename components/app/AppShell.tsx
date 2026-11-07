@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -180,7 +181,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <MemberAvatar name={displayName} color={self ? colors[self.id] : '#5b6b7f'} size={30} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="truncate">{demo ? 'Sample family' : email}</DropdownMenuLabel>
+            {/* Base UI only renders a menu label inside a group; on its own it throws. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="truncate">{demo ? 'Sample family' : email}</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout}>
               <LogOut className="size-4" aria-hidden="true" /> {demo ? 'Leave the demo' : 'Log out'}
