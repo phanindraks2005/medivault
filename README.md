@@ -4,6 +4,8 @@ A health records app for families. Upload a prescription or lab report, and Medi
 
 **Live:** [medivault-ks.vercel.app](https://medivault-ks.vercel.app) · [Try the demo](https://medivault-ks.vercel.app/demo) (no account needed) · [Sample QR emergency card](https://medivault-ks.vercel.app/e/demo-ramesh)
 
+**Case study:** [phanindra-ks.vercel.app/projects/medivault](https://phanindra-ks.vercel.app/projects/medivault)
+
 ## Features
 
 - **Try it without an account.** `/demo` turns the tab into a full walkthrough with a sample family: every screen works (family, records with their original files, Doc, vaccinations, emergency cards with a sample QR link (its public page is `/e/demo-ramesh`), interaction check, visit summary and the quick answers). The real screens run against an in-browser copy of the sample data (`lib/demo/`), AI tools give labelled sample answers, and nothing is sent to Supabase or the AI. Changes last until the visitor leaves the demo or closes the tab. The landing page shows the real app on a fixed stage that changes as you scroll, and lets you switch between the sample family's emergency cards.
