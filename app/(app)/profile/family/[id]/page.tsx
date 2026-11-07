@@ -292,7 +292,7 @@ function Member({ id }: { id: string }) {
                 {member.emergency_contact_phone && (
                   <a
                     href={`tel:${member.emergency_contact_phone.replace(/\s+/g, '')}`}
-                    className="inline-flex items-center gap-1.5 text-[15px] text-band underline-offset-4 hover:underline num"
+                    className="relative inline-flex items-center gap-1.5 text-[15px] text-band underline-offset-4 after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline num"
                   >
                     <Phone className="size-3.5" aria-hidden="true" /> {member.emergency_contact_phone}
                   </a>
