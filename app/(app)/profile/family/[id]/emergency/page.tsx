@@ -9,7 +9,7 @@ import { Button, ButtonLink } from '@/components/ui/button'
 import ShareCardPanel from '@/components/app/ShareCardPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
-import { ErrorLine, Page, PageHeader } from '@/components/app/kit'
+import { ErrorLine, MemberNotFound, Page, PageHeader } from '@/components/app/kit'
 import { currentMedicines } from '@/lib/medicines'
 import { todayISO } from '@/lib/dates'
 import { cn } from '@/lib/utils'
@@ -29,7 +29,7 @@ type Card = {
 // Large type for older eyes and for someone reading it in a hurry; prints on one page.
 export default function EmergencyCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { colors } = useFamily()
+  const { members, colors, status: familyStatus } = useFamily()
   const [card, setCard] = useState<Card | null>(null)
   const [medicines, setMedicines] = useState<string[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -60,6 +60,8 @@ export default function EmergencyCardPage({ params }: { params: Promise<{ id: st
   const conditions = allergyList(card?.known_conditions)
   const age = ageFrom(card?.dob)
   const color = colors[id] || '#5b6b7f'
+
+  if (familyStatus === 'ready' && !members.some((m) => m.id === id)) return <MemberNotFound />
 
   return (
     <Page className="print:p-0">

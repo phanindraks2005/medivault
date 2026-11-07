@@ -29,7 +29,7 @@ import MemberAvatar from '@/components/app/MemberAvatar'
 import DateLeaf from '@/components/app/DateLeaf'
 import MemberForm, { toRow, type MemberValues } from '@/components/app/MemberForm'
 import UploadRecordDialog from '@/components/app/UploadRecordDialog'
-import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
+import { EmptyLine, ErrorLine, MemberNotFound, Page, PageHeader, Panel, PanelHead, RowsSkeleton, rowCard } from '@/components/app/kit'
 import type { MedicalRecord, Medicine, Vaccination } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
 import { readState } from '@/lib/records'
@@ -196,13 +196,7 @@ function Member({ id }: { id: string }) {
     router.push('/profile')
   }
 
-  if (status === 'missing') {
-    return (
-      <Page>
-        <PageHeader title="Not found" back={{ href: '/profile', label: 'Family' }} sub="This family member doesn't exist or was deleted." />
-      </Page>
-    )
-  }
+  if (status === 'missing') return <MemberNotFound />
 
   const meta = member
     ? [

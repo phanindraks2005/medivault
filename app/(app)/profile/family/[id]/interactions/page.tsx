@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import MemberAvatar from '@/components/app/MemberAvatar'
-import { EmptyLine, ErrorLine, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
+import { EmptyLine, ErrorLine, MemberNotFound, Page, PageHeader, Panel, PanelHead } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
@@ -35,7 +35,7 @@ const severity: Record<Severity, { label: string; variant: 'ok' | 'neutral' | 'd
 
 export default function InteractionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { members, colors } = useFamily()
+  const { members, colors, status: familyStatus } = useFamily()
   const member = members.find((m) => m.id === id)
   const first = member?.name.split(' ')[0] || 'Back'
   usePageTitle(member ? `Interaction check · ${member.name}` : null)
@@ -87,6 +87,8 @@ export default function InteractionsPage({ params }: { params: Promise<{ id: str
     }
     setChecking(false)
   }
+
+  if (familyStatus === 'ready' && !member) return <MemberNotFound />
 
   const chip = 'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors duration-150'
 

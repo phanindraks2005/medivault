@@ -115,6 +115,15 @@ export function ErrorLine({ children, onRetry }: { children: React.ReactNode; on
   )
 }
 
+// For a member page whose id isn't in this family (deleted, or a bad link).
+export function MemberNotFound() {
+  return (
+    <Page>
+      <PageHeader title="Not found" back={{ href: '/profile', label: 'Family' }} sub="This family member doesn't exist or was deleted." />
+    </Page>
+  )
+}
+
 // A pill-shaped radio group: one tab stop, arrow keys move the choice.
 export function Segmented<T extends string>({
   label,

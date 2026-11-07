@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import MemberAvatar from '@/components/app/MemberAvatar'
 import DateLeaf from '@/components/app/DateLeaf'
-import { EmptyLine, ErrorLine, Field, Page, PageHeader, Panel, PanelHead, RowsSkeleton } from '@/components/app/kit'
+import { EmptyLine, ErrorLine, Field, MemberNotFound, Page, PageHeader, Panel, PanelHead, RowsSkeleton } from '@/components/app/kit'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/use-page-title'
 import { LIMITS } from '@/lib/limits'
@@ -33,7 +33,7 @@ type Vax = { id: string; vaccine_name: string; date_given: string | null; next_d
 
 export default function VaccinationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { members, colors } = useFamily()
+  const { members, colors, status: familyStatus } = useFamily()
   const member = members.find((m) => m.id === id)
   const first = member?.name.split(' ')[0] || 'Back'
   usePageTitle(member ? `${member.name}'s vaccinations` : null)
@@ -87,6 +87,8 @@ export default function VaccinationsPage({ params }: { params: Promise<{ id: str
           : list.length
             ? 'Nothing due in the next 30 days.'
             : `Log ${first}'s doses and when the next one is due.`
+
+  if (familyStatus === 'ready' && !member) return <MemberNotFound />
 
   return (
     <Page>
