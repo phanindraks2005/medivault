@@ -8,9 +8,11 @@ import { FamilyScene, PolicyScene, PrescriptionScene } from '@/components/landin
 import { AddMemberDialog, LandingNav, MemberTabs, Reveal, Wordmark } from '@/components/landing/interactive'
 import { CalendarCrop, ChatCrop, InteractionCrop, ReadCrop, RedCrop, VaccineCrop } from '@/components/landing/crops'
 import { cn } from '@/lib/utils'
+import { shareMetadata } from '@/lib/share'
 
 export const metadata: Metadata = {
   title: { absolute: "MediVault · Your family's health, on one calendar" },
+  ...shareMetadata('/'),
 }
 
 const GITHUB = 'https://github.com/phanindraks2005/medivault'

@@ -15,6 +15,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Link-preview images and URLs are made absolute against the live site.
+  metadataBase: new URL("https://medivault-ks.vercel.app"),
   title: {
     default: "MediVault: your family's health, dated and in one place",
     template: "%s · MediVault",
